@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(ChiaKeyWindowsTsf VERSION 0.1.0 LANGUAGES C CXX)
+project(ChiaKeyWindowsTsf VERSION 1.2.7 LANGUAGES C CXX)
 
 set(CHIAKEY_PRERELEASE "" CACHE STRING "Release suffix, e.g. beta.1")
 set(CHIAKEY_DISPLAY_VERSION "${PROJECT_VERSION}")
