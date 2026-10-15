@@ -6,8 +6,9 @@
 # the same bundle id -- even though the top-level relocatable attribute reads
 # "false". This test proves the default output fails
 # Scripts/verify-pkg-no-relocation.sh, and that the recipe
-# Scripts/build-release-package.sh uses (analyze, force
-# BundleIsRelocatable=false, sanitize the expanded component) passes it.
+# Scripts/build-release-package.sh uses (analyze, force the bundle entries
+# non-relocatable and not version-checked, sanitize the expanded component)
+# passes it.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -58,14 +59,7 @@ echo "ok - default pkgbuild component carries relocation metadata (verifier reje
 # 2. The fixed recipe, mirroring build-release-package.sh: analyze, force every
 # bundle entry non-relocatable, rebuild, sanitize the expanded component.
 /usr/bin/pkgbuild --analyze --root "${STAGE_ROOT}" "${TEST_DIR}/component.plist" >/dev/null
-/usr/bin/plutil -convert json -o - "${TEST_DIR}/component.plist" \
-  | /usr/bin/ruby -rjson -e '
-    data = JSON.parse(STDIN.read)
-    entries = data.is_a?(Hash) ? data.values : data
-    entries.each { |entry| entry["BundleIsRelocatable"] = false }
-    puts JSON.generate(data)
-  ' \
-  | /usr/bin/plutil -convert xml1 -o "${TEST_DIR}/component.plist" -
+"${ROOT_DIR}/Scripts/force-component-nonrelocatable.py" "${TEST_DIR}/component.plist"
 build_component "${TEST_DIR}/forced.pkg" "${TEST_DIR}/component.plist"
 
 /usr/sbin/pkgutil --expand "${TEST_DIR}/forced.pkg" "${TEST_DIR}/expanded"
@@ -74,7 +68,19 @@ build_component "${TEST_DIR}/forced.pkg" "${TEST_DIR}/component.plist"
 "${VERIFIER}" "${TEST_DIR}/clean.pkg" >/dev/null
 echo "ok - forced + sanitized component passes the relocation verifier"
 
-# 3. The release gate runs on the product package, so cover the wrapping too.
+# 3. A line-based sanitizer must not quietly empty a PackageInfo that arrives
+# as a single line: the stripped file has to fail, not pass.
+/usr/sbin/pkgutil --expand "${TEST_DIR}/default.pkg" "${TEST_DIR}/expanded-default"
+/bin/mkdir -p "${TEST_DIR}/one-line"
+/usr/bin/tr -d '\n' <"${TEST_DIR}/expanded-default/PackageInfo" \
+  >"${TEST_DIR}/one-line/PackageInfo"
+if "${VERIFIER}" --sanitize "${TEST_DIR}/one-line" >/dev/null 2>&1; then
+  echo "not ok - sanitizing a single-line PackageInfo must fail, not pass" >&2
+  exit 1
+fi
+echo "ok - a single-line PackageInfo cannot be silently emptied"
+
+# 4. The release gate runs on the product package, so cover the wrapping too.
 for pkg_name in default clean; do
   /bin/cat >"${TEST_DIR}/Distribution.xml" <<EOF
 <?xml version="1.0" encoding="utf-8"?>

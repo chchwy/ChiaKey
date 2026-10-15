@@ -4,8 +4,9 @@
 # version -- at the destination this run installs to, and a missing or stale
 # payload must fail the install instead of registering some other copy.
 #
-# Every run happens inside CHIAKEY_POSTINSTALL_SANDBOX_DIR, so nothing here
-# can kill, delete, or register a real ChiaKey install on the test machine.
+# Every run happens inside a sandbox injected into the script's SANDBOX_DIR
+# assignment, so nothing here can kill, delete, or register a real ChiaKey
+# install on the test machine.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -54,17 +55,24 @@ LAST_OUTPUT=""
 
 run_postinstall() { # <target-root> <expected-version|unsubstituted>
   local target="$1" expected_version="$2" script="${TEST_DIR}/postinstall"
+  local version_expr="s|^EXPECTED_VERSION=.*|EXPECTED_VERSION=\"${expected_version}\"|"
   if [ "${expected_version}" = "unsubstituted" ]; then
-    /bin/cp "${POSTINSTALL_TEMPLATE}" "${script}"
-  else
-    # Same assignment-line-only substitution build-release-package.sh performs.
-    /usr/bin/sed "s|^EXPECTED_VERSION=.*|EXPECTED_VERSION=\"${expected_version}\"|" \
-      "${POSTINSTALL_TEMPLATE}" >"${script}"
+    version_expr=""
   fi
+  # Same assignment-line-only substitution build-release-package.sh performs.
+  /usr/bin/sed \
+    -e "s|^SANDBOX_DIR=.*|SANDBOX_DIR=\"${SANDBOX}\"|" \
+    ${version_expr:+-e "${version_expr}"} \
+    "${POSTINSTALL_TEMPLATE}" >"${script}"
+  # Without the sandbox the script would operate on the real "/": refuse to run
+  # it at all rather than pkill and delete the tester's own install.
+  /usr/bin/grep -qF "SANDBOX_DIR=\"${SANDBOX}\"" "${script}" || {
+    echo "failed to inject the sandbox into the postinstall script" >&2
+    exit 1
+  }
   chmod +x "${script}"
   set +e
-  LAST_OUTPUT="$(CHIAKEY_POSTINSTALL_SANDBOX_DIR="${SANDBOX}" \
-    "${script}" "/" "${target}" "${TEST_DIR}/fake.pkg" 2>&1)"
+  LAST_OUTPUT="$("${script}" "/" "${target}" "${TEST_DIR}/fake.pkg" 2>&1)"
   LAST_STATUS=$?
   set -e
 }
@@ -166,6 +174,22 @@ expect_status 0 "system-wide upgrade succeeds"
 expect_exists "${SANDBOX}/${APP_REL}" "keeps the system copy"
 expect_missing "${SANDBOX}/Users/tester/${APP_REL}" "prunes the per-user copy"
 expect_missing "${SANDBOX}/Users/tester/Library/Input Methods/千秋輸入法.app" "prunes the legacy copy"
+
+echo "== a newer install on disk is reported as such, not as a bad landing =="
+reset_world
+make_app "${SANDBOX}" "9.9.9" "${BUNDLE_ID}"
+run_postinstall "${SANDBOX}" "${EXPECTED_VERSION}"
+expect_status 1 "a newer installed copy fails the install"
+expect_output "a newer ChiaKey (9.9.9) is already installed" "names the newer copy"
+expect_no_output "did not land where this package installed" "does not blame relocation"
+
+echo "== the sandbox hook is not readable from the environment =="
+if /usr/bin/grep -q 'CHIAKEY_POSTINSTALL_SANDBOX_DIR' "${POSTINSTALL_TEMPLATE}"; then
+  report not-ok "postinstall takes no sandbox path from the environment" \
+    "the template still reads CHIAKEY_POSTINSTALL_SANDBOX_DIR"
+else
+  report ok "postinstall takes no sandbox path from the environment"
+fi
 
 echo "== unsubstituted version placeholder skips only the version check =="
 reset_world

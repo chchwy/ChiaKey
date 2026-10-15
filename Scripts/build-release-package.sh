@@ -673,19 +673,15 @@ run /bin/chmod 755 "${PKG_SCRIPTS_DIR}/postinstall"
 # those rules present PackageKit may redirect the payload onto any existing
 # copy with the same bundle id -- e.g. a Downloads backup -- even though the
 # top-level relocatable attribute already reads "false" (issue #25). Analyze
-# the staged root, force every bundle entry non-relocatable, and hand the
-# plist back to pkgbuild; the PackageInfo sanitation inside
-# rebuild_component_package_without_metadata_payload is the second layer.
+# the staged root and force every bundle entry non-relocatable (and not
+# version-checked, so the payload always overwrites) before handing the plist
+# back to pkgbuild. That still leaves an empty <relocate/> element behind, so
+# the PackageInfo sanitation inside
+# rebuild_component_package_without_metadata_payload is required too, not a
+# fallback.
 run /bin/rm -f "${COMPONENT_PLIST}"
 run /usr/bin/pkgbuild --analyze --root "${STAGE_ROOT}" "${COMPONENT_PLIST}"
-/usr/bin/plutil -convert json -o - "${COMPONENT_PLIST}" \
-  | /usr/bin/ruby -rjson -e '
-    data = JSON.parse(STDIN.read)
-    entries = data.is_a?(Hash) ? data.values : data
-    entries.each { |entry| entry["BundleIsRelocatable"] = false }
-    puts JSON.generate(data)
-  ' \
-  | /usr/bin/plutil -convert xml1 -o "${COMPONENT_PLIST}" -
+run "${ROOT_DIR}/Scripts/force-component-nonrelocatable.py" "${COMPONENT_PLIST}"
 
 run /usr/bin/pkgbuild \
   --root "${STAGE_ROOT}" \

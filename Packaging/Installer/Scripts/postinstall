@@ -10,11 +10,13 @@ EXPECTED_BUNDLE_ID="com.chiakey.inputmethod.ChiaKey"
 # equality check; every placement check stays active.
 EXPECTED_VERSION="__COMPONENT_VERSION__"
 
-# Hermetic tests (Scripts/test-postinstall-placement.sh) point this at a
-# scratch directory that plays the role of "/": process kills and console-user
+# Scripts/test-postinstall-placement.sh rewrites the assignment line below with
+# a scratch directory that plays the role of "/": process kills and console-user
 # discovery are disabled, and the fake console user is <sandbox>/Users/tester.
-# Production (Installer.app, /usr/sbin/installer, the updater) never sets it.
-SANDBOX_DIR="${CHIAKEY_POSTINSTALL_SANDBOX_DIR%/}"
+# Never read from the environment: this script runs as root from PackageKit,
+# which passes the caller's environment through, and nothing outside the build
+# may redirect which copies it deletes.
+SANDBOX_DIR=""
 
 console_user=""
 console_home=""
@@ -77,6 +79,14 @@ fi
 if [ "${EXPECTED_VERSION}" != "__COMPONENT_VERSION__" ]; then
   installed_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "${expected_plist}" 2>/dev/null || true)"
   if [ "${installed_version}" != "${EXPECTED_VERSION}" ]; then
+    # A newer bundle on disk is a different failure: PackageKit skips the
+    # payload for a version-checked bundle, so say which one to uninstall
+    # instead of blaming the payload's landing spot.
+    newest="$(printf '%s\n%s\n' "${EXPECTED_VERSION}" "${installed_version}" |
+      /usr/bin/sort -V 2>/dev/null | /usr/bin/tail -n 1)"
+    if [ -n "${installed_version}" ] && [ "${newest}" = "${installed_version}" ]; then
+      fail "a newer ChiaKey (${installed_version}) is already installed at ${keep_app}; this package carries ${EXPECTED_VERSION} and PackageKit kept the newer bundle. Remove the installed copy first if you meant to go back to ${EXPECTED_VERSION}."
+    fi
     fail "expected version ${EXPECTED_VERSION} at ${keep_app}, found ${installed_version:-<none>}; the payload did not land where this package installed."
   fi
 fi

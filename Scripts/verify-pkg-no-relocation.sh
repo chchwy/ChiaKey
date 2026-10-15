@@ -9,6 +9,10 @@
 # macOS emits relocatable="false" together with a non-empty <relocate> list
 # unless the component plist forces BundleIsRelocatable=false.
 #
+# A non-empty <bundle-version> is rejected for the same reason: PackageKit then
+# skips the payload when the destination holds a newer bundle, which is the
+# other way the payload fails to land where postinstall expects it.
+#
 # Usage:
 #   verify-pkg-no-relocation.sh <pkg>
 #       Verify a built package (product or component). Product packages are
@@ -48,7 +52,26 @@ check_package_info() {
   if /usr/bin/grep -q 'relocatable="true"' "${package_info}"; then
     fail "${label}: PackageInfo is relocatable; PackageKit could redirect the payload (issue #25)"
   fi
+  # A version-checked bundle lets PackageKit keep a newer copy and skip the
+  # payload, which the postinstall placement check reports as a failed install.
+  if /usr/bin/grep -q '<bundle-version>' "${package_info}"; then
+    fail "${label}: PackageInfo version-checks its bundles; PackageKit could skip the payload for a newer copy on disk (issue #25)"
+  fi
   echo "OK ${label}: no relocation metadata"
+}
+
+# The payload description the installer actually needs. Checked after sanitation
+# because the sed below works on lines: a PackageInfo that ever arrives as a
+# single line would otherwise be deleted wholesale and still pass the greps.
+check_package_info_intact() {
+  local package_info="$1" label="$2" element
+
+  /usr/bin/xmllint --noout "${package_info}" >/dev/null 2>&1 ||
+    fail "${label}: PackageInfo is no longer well-formed XML"
+  for element in '<pkg-info' '<payload' '<bundle id='; do
+    /usr/bin/grep -q "${element}" "${package_info}" ||
+      fail "${label}: PackageInfo lost ${element}"
+  done
 }
 
 sanitize_expanded_component() {
@@ -64,6 +87,7 @@ sanitize_expanded_component() {
     -e '/<relocate[ >]/,/<\/relocate>/d' \
     -e 's/relocatable="true"/relocatable="false"/g' \
     "${package_info}"
+  check_package_info_intact "${package_info}" "sanitized $(/usr/bin/basename "${expanded_dir}")"
   check_package_info "${package_info}" "sanitized $(/usr/bin/basename "${expanded_dir}")"
 }
 
