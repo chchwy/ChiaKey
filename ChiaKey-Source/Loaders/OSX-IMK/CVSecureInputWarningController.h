@@ -12,6 +12,9 @@
   // the logout button is hidden.
   NSLayoutConstraint *_laterBesideLogout;
   NSLayoutConstraint *_laterAtTrailingEdge;
+  // Bumped on every show and hide so a logout reply from an earlier warning
+  // cannot rewrite the current one.
+  NSUInteger _warningGeneration;
 }
 - (void)showWarning;
 - (void)hideWarning;

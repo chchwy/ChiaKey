@@ -14,10 +14,6 @@ static const CGFloat kCVSecureInputWarningMargin = 20.0;
 static NSString *const kCVLogoutScript =
     @"tell application \"loginwindow\" to «event aevtlogo»";
 
-@interface CVSecureInputWarningController ()
-- (void)_logoutRequestDidFinish:(NSNumber *)succeeded;
-@end
-
 @implementation CVSecureInputWarningController
 
 - (void)dealloc {
@@ -131,12 +127,14 @@ static NSString *const kCVLogoutScript =
 
 - (void)showWarning {
   if (!_panel) [self _buildPanel];
+  _warningGeneration++;
   [self _resetContents];
   [_panel center];
   [_panel orderFrontRegardless];
 }
 
 - (void)hideWarning {
+  _warningGeneration++;
   [_panel orderOut:nil];
 }
 
@@ -146,6 +144,7 @@ static NSString *const kCVLogoutScript =
 
 - (void)_logOut:(id)sender {
   [_logoutButton setEnabled:NO];
+  NSUInteger generation = _warningGeneration;
 
   // The reply only comes once the user answers the dialog, so wait off the
   // main thread.
@@ -179,15 +178,16 @@ static NSString *const kCVLogoutScript =
         }
 
         [task release];
-        [self performSelectorOnMainThread:@selector(_logoutRequestDidFinish:)
-                               withObject:[NSNumber numberWithBool:succeeded]
-                            waitUntilDone:NO];
+        dispatch_async(dispatch_get_main_queue(), ^{
+          if (generation != _warningGeneration) return;
+          [self _logoutRequestDidFinish:succeeded];
+        });
         [pool drain];
       });
 }
 
-- (void)_logoutRequestDidFinish:(NSNumber *)succeeded {
-  if ([succeeded boolValue]) {
+- (void)_logoutRequestDidFinish:(BOOL)succeeded {
+  if (succeeded) {
     // The user cancelled the system dialog; leave the offer standing.
     [_logoutButton setEnabled:YES];
     return;
