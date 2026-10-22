@@ -213,6 +213,15 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
     return columns < expandedColumnLimit() ? columns : expandedColumnLimit();
   }
 
+  // Call after paging from outside the key handler, e.g. the page buttons.
+  void syncExpandedColumnsToCurrentPage() {
+    if (!m_expanded) return;
+    if (m_currentHighlightedCandidateIndex > lastCurrentPageCandidateIndex())
+      m_currentHighlightedCandidateIndex = lastCurrentPageCandidateIndex();
+    if (m_currentPage < m_expandedAnchorPage) m_expandedAnchorPage = m_currentPage;
+    scrollExpandedColumnsToCurrentPage();
+  }
+
  protected:
   void scrollExpandedColumnsToCurrentPage() {
     if (m_currentPage < m_expandedFirstPage)
@@ -285,8 +294,7 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
       return PVCandidateState::Ignored;
     }
 
-    if (m_currentPage < m_expandedAnchorPage) m_expandedAnchorPage = m_currentPage;
-    scrollExpandedColumnsToCurrentPage();
+    syncExpandedColumnsToCurrentPage();
     if (m_currentPage != oldPage) return PVCandidateState::UpdatePage;
     if (m_currentHighlightedCandidateIndex != oldHighlight)
       return PVCandidateState::UpdateCandidateHighlight;
