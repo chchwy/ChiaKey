@@ -132,6 +132,7 @@ ChiaKey::EngineConfig CopyConfig(const CKC_EngineConfig* config) {
   if (config->composing_text_buffer_size > 0) {
     result.composingTextBufferSize = config->composing_text_buffer_size;
   }
+  result.expandableCandidatePanel = config->expandable_candidate_panel != 0;
   return result;
 }
 
@@ -157,6 +158,9 @@ CKC_CandidateState CopyCandidateState(
   result.candidates_per_page = candidateState.candidatesPerPage;
   result.highlighted_index = candidateState.highlightedIndex;
   result.highlighted_candidate_index = candidateState.highlightedCandidateIndex;
+  result.expanded = candidateState.expanded ? 1 : 0;
+  result.expanded_first_page = candidateState.expandedFirstPage;
+  result.expanded_page_count = candidateState.expandedPageCount;
   return result;
 }
 
@@ -186,6 +190,7 @@ CKC_EngineConfig CKC_EngineConfigDefault(void) {
   config.clear_composing_text_with_esc = 0;
   config.shift_key_always_commit_uppercase_characters = 0;
   config.composing_text_buffer_size = 20;
+  config.expandable_candidate_panel = 1;
   return config;
 }
 

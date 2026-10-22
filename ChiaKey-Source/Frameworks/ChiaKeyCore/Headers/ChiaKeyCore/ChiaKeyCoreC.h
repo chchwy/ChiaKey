@@ -50,6 +50,8 @@ typedef struct CKC_EngineConfig {
   int clear_composing_text_with_esc;
   int shift_key_always_commit_uppercase_characters;
   size_t composing_text_buffer_size;
+  /* Right arrow expands a vertical candidate list into columns of pages */
+  int expandable_candidate_panel;
 } CKC_EngineConfig;
 
 typedef struct CKC_TextRange {
@@ -68,6 +70,10 @@ typedef struct CKC_CandidateState {
   size_t candidates_per_page;
   size_t highlighted_index;
   size_t highlighted_candidate_index;
+  /* pages [expanded_first_page, +expanded_page_count) show as columns */
+  int expanded;
+  size_t expanded_first_page;
+  size_t expanded_page_count;
 } CKC_CandidateState;
 
 typedef struct CKC_EngineSnapshot {

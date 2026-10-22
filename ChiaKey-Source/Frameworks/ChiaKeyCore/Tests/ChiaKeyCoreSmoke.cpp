@@ -851,6 +851,32 @@ int RunCSmoke(const std::string& repoRoot, const std::string& writableDir,
 
   CKC_EngineAcknowledgeCommit(engine);
   CKC_EngineReset(engine);
+  for (char key : {'g', '4'}) {
+    if (!CKC_EngineHandleAsciiKey(engine, key, modifiers)) {
+      CKC_EngineDestroy(engine);
+      return Fail(std::string("C bridge engine did not handle key: ") + key);
+    }
+  }
+  CKC_KeyEvent downKey = {};
+  downKey.key_code = 31;
+  CKC_KeyEvent rightKey = {};
+  rightKey.key_code = 29;
+  if (!CKC_EngineHandleKey(engine, &downKey) ||
+      !CKC_EngineHandleKey(engine, &rightKey)) {
+    CKC_EngineDestroy(engine);
+    return Fail("C bridge engine did not handle candidate expansion keys");
+  }
+  snapshot = CKC_EngineCopySnapshot(engine);
+  const CKC_CandidateState expansion = snapshot.candidate_state;
+  CKC_EngineSnapshotDestroy(&snapshot);
+  if (!expansion.visible || !expansion.expanded ||
+      expansion.expanded_first_page != 0 || expansion.expanded_page_count < 2) {
+    CKC_EngineDestroy(engine);
+    return Fail("expected C bridge Right arrow to expand the candidate list");
+  }
+
+  CKC_EngineAcknowledgeCommit(engine);
+  CKC_EngineReset(engine);
   if (!CKC_EngineHandleAsciiKey(engine, '5', modifiers)) {
     CKC_EngineDestroy(engine);
     return Fail("C bridge engine did not handle standalone ㄓ key");
