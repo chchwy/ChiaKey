@@ -1156,6 +1156,8 @@ namespace ChiaKey.Settings
                     // the offer is checked again here; the command line only names the version to ask about
                     UpdateOffer offer;
                     try { offer = service.CheckApp(); }
+                    // the helper already counted today's check; a dropped connection must not cost a day
+                    catch (System.Net.WebException) { service.RetryAutomaticCheck(); return; }
                     catch (Exception) { return; }
                     if (offer == null || offer.Version != args[1]) return;
                     Application.Run(new AppUpdatePrompt(service, offer));

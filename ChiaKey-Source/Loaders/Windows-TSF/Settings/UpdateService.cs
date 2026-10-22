@@ -644,6 +644,19 @@ namespace ChiaKey.Settings
             if (prompt != null) PromptApp(prompt);
         }
 
+        // Lets the background helper check again on its next tick instead of the next day,
+        // e.g. when the prompt could not reach the release feed to confirm the update.
+        internal void RetryAutomaticCheck()
+        {
+            try
+            {
+                using (new FileStream(Path.Combine(Root, "check.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+                    File.Delete(Path.Combine(Root, "last-check.txt"));
+            }
+            // a helper holding the lock is checking right now anyway
+            catch (IOException) { }
+        }
+
         internal static void RunBackground()
         {
             bool created;

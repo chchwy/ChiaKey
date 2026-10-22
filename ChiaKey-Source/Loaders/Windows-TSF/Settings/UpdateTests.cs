@@ -355,11 +355,16 @@ namespace ChiaKey.Settings
             promptOptions.SetBool("AutoUpdateLexicon", false); promptOptions.Save();
             promptService.AutomaticPass();
             Check(prompted.Count == 1 && prompted[0] == "1.2.7", "automatic pass asks about the app update without downloading it");
+            promptService.AutomaticPass();
+            Check(prompted.Count == 1, "the prompt counts as the day's automatic check");
+            promptService.RetryAutomaticCheck();
+            promptService.AutomaticPass();
+            Check(prompted.Count == 2, "a prompt that could not confirm the update is retried on the next tick");
             promptOptions = promptService.Preferences;
             promptOptions.SetString("SkippedAppVersion", "1.2.7"); promptOptions.Save();
-            File.Delete(Path.Combine(promptService.Root, "last-check.txt"));
+            promptService.RetryAutomaticCheck();
             promptService.AutomaticPass();
-            Check(prompted.Count == 1, "a skipped app version is not asked about again");
+            Check(prompted.Count == 2, "a skipped app version is not asked about again");
 
             // Automatic age gate and daily throttle; never invokes an installer.
             int autoFetches = 0;
