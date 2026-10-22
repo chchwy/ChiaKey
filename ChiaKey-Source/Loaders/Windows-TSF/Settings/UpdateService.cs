@@ -39,6 +39,8 @@ namespace ChiaKey.Settings
         internal readonly string AppUpdateVersion;
         internal Func<string, long, byte[]> Fetch;
         internal Action<string> CoreValidator;
+        // asks the desktop user about an app update the automatic pass found
+        internal Action<UpdateOffer> PromptApp;
         private static readonly UTF8Encoding Utf8 = new UTF8Encoding(false, true);
         private static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 8 * 1024 * 1024 };
 
@@ -53,6 +55,7 @@ namespace ChiaKey.Settings
             AppUpdateVersion = installed.Success ? installed.Groups[1].Value : version.ToString(3);
             Fetch = Download;
             CoreValidator = ValidateCore;
+            PromptApp = delegate(UpdateOffer offer) { StartUpdatePrompt(Executable, offer.Version); };
         }
 
         internal static UpdateService Default()
@@ -517,7 +520,10 @@ namespace ChiaKey.Settings
             return path;
         }
 
-        internal static void InstallApp(string path, string expectedHash, Action<ProcessStartInfo> launch = null)
+        // A silent install shows only the UAC prompt; the installer's pages and message boxes stay hidden.
+        // Returns the installer process, or null when launch was supplied.
+        internal static Process InstallApp(string path, string expectedHash, Action<ProcessStartInfo> launch = null,
+                                           bool silent = false)
         {
             // Keep the verified file open without write/delete sharing through
             // UAC and process creation, preventing replacement after hashing.
@@ -527,10 +533,19 @@ namespace ChiaKey.Settings
                 using (SHA256 sha = SHA256.Create())
                     actualHash = BitConverter.ToString(sha.ComputeHash(installer)).Replace("-", "").ToLowerInvariant();
                 if (actualHash != expectedHash) throw new InvalidDataException("安裝檔已改變，請重新下載。");
-                var start = new ProcessStartInfo(path, "/SP- /NORESTART") { UseShellExecute = true, Verb = "runas" };
-                if (launch != null) launch(start);
-                else Process.Start(start);
+                string arguments = silent ? "/VERYSILENT /SUPPRESSMSGBOXES /SP- /NORESTART" : "/SP- /NORESTART";
+                var start = new ProcessStartInfo(path, arguments) { UseShellExecute = true, Verb = "runas" };
+                if (launch == null) return Process.Start(start);
+                launch(start);
+                return null;
             }
+        }
+
+        // The helper keeps checking while the desktop user decides in a separate window.
+        internal static void StartUpdatePrompt(string executable, string version)
+        {
+            Process.Start(new ProcessStartInfo(executable, "/update-prompt " + Component(version)) {
+                UseShellExecute = false });
         }
 
         internal static void StartBackgroundUpdater(string executable)
@@ -573,6 +588,7 @@ namespace ChiaKey.Settings
             bool app = options.GetBool("AutoUpdateApp", true), lexicon = options.GetBool("AutoUpdateLexicon", true);
             if (!app && !lexicon) return;
             PrepareRoot();
+            UpdateOffer prompt = null;
             // Cross-process lock also serializes the persisted daily gate.
             using (FileStream guard = new FileStream(Path.Combine(Root, "check.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
             {
@@ -603,9 +619,16 @@ namespace ChiaKey.Settings
                         UpdateOffer offer = CheckApp();
                         if (offer != null && DateTime.UtcNow - offer.Published >= TimeSpan.FromDays(3))
                         {
-                            string installer = DownloadApp(offer);
-                            InstallApp(installer, offer.Sha256);
-                            results.Add(Ui.Text("已開啟 ") + offer.Version + Ui.Text(" 安裝器；完成後重新開啟應用程式"));
+                            // nothing is downloaded until the user agrees
+                            if (offer.Version == options.GetString("SkippedAppVersion", ""))
+                            {
+                                results.Add(Ui.Text("已略過本體 ") + offer.Version);
+                            }
+                            else
+                            {
+                                prompt = offer;
+                                results.Add(Ui.Text("本體有新版本 ") + offer.Version);
+                            }
                         }
                         else results.Add(offer == null ? Ui.Text("本體已是最新") : Ui.Text("本體等待發布滿三天"));
                     }
@@ -617,6 +640,8 @@ namespace ChiaKey.Settings
                 if (!networkFailed) AtomicText(stamp, DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture));
                 Status(string.Join("；", results.ToArray()));
             }
+            // asked after the lock is released, so another helper is never kept waiting on the user
+            if (prompt != null) PromptApp(prompt);
         }
 
         internal static void RunBackground()

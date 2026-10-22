@@ -1144,6 +1144,24 @@ namespace ChiaKey.Settings
                     UpdateService.StartBackgroundUpdater(Application.ExecutablePath);
                 return;
             }
+            if (args.Length > 1 && args[0] == "/update-prompt")
+            {
+                bool first;
+                using (Mutex prompt = new Mutex(true, "Local\\ChiaKey.UpdatePrompt", out first))
+                {
+                    if (!first) return;
+                    Application.EnableVisualStyles();
+                    Application.SetCompatibleTextRenderingDefault(false);
+                    UpdateService service = UpdateService.Default();
+                    // the offer is checked again here; the command line only names the version to ask about
+                    UpdateOffer offer;
+                    try { offer = service.CheckApp(); }
+                    catch (Exception) { return; }
+                    if (offer == null || offer.Version != args[1]) return;
+                    Application.Run(new AppUpdatePrompt(service, offer));
+                }
+                return;
+            }
             // the input menu opens the phrase editor on its own, as Yahoo's separate PhraseEditor.exe
             bool phrases = args.Length > 0 &&
                            string.Equals(args[0], PhraseEditorArgument, StringComparison.OrdinalIgnoreCase);
