@@ -191,7 +191,7 @@ SIZE CandidateWindow::measure() {
             TextWidth(dc, hintFont_, L"TAB選取，shift+TAB切換") + scale(16));
         size.cy = top + rowHeight_ + scale(kMessagePadding);
     } else if (expanded_) {
-        // the first column keeps the collapsed list's width; the rest fit their text
+        // every column fits its own text
         const size_t first = expandedFirstPage_ * candidatesPerPage_;
         const size_t last = std::min(allCandidates_.size(),
                                      first + expandedPageCount_ * candidatesPerPage_);
@@ -199,12 +199,10 @@ SIZE CandidateWindow::measure() {
         int left = 0;
         for (size_t columnStart = first; columnStart < last; columnStart += candidatesPerPage_) {
             const size_t columnEnd = std::min(last, columnStart + candidatesPerPage_);
-            const bool firstColumn = columnStart == first;
-            int width = firstColumn ? scale(kMinimumWidth) : 0;
+            int width = 0;
             for (size_t index = columnStart; index < columnEnd; ++index)
                 width = std::max(width, TextWidth(dc, candidateFont_, allCandidates_[index]) +
-                                            (firstColumn ? scale(kWidthPadding)
-                                                         : scale(kTextLeft) + scale(6)));
+                                            scale(kTextLeft) + scale(6));
             for (size_t index = columnStart; index < columnEnd; ++index) {
                 const int y = top + static_cast<int>(index - columnStart) * rowHeight_;
                 rectIndexes_.push_back(index);
@@ -473,9 +471,8 @@ void CandidateWindow::paintExpanded(HDC dc, const RECT& client) {
         if (active && row == 0) arrowLeft = cell.left + scale(kArrowLeft);
         const bool highlighted = active && row == highlightedIndex_;
         if (highlighted) {
-            const int rightInset = column == 0 ? scale(kBorderWidth + 7) : scale(2);
             const RECT bar{cell.left + scale(kBorderWidth + 3), cell.top,
-                           cell.right - rightInset, cell.bottom};
+                           cell.right - scale(2), cell.bottom};
             FillGradient(dc, bar, palette_.highlight, palette_.highlightEnd);
         }
         // only the current column answers to the selection keys

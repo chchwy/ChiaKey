@@ -29,7 +29,6 @@ using namespace OpenVanilla;
   NSRect _keyFrame;
   NSRect _textFrame;
   CGFloat _rowHeight;
-  CGFloat _rowWidth;
   CGFloat _leftInset;
 
   BOOL _clickable;

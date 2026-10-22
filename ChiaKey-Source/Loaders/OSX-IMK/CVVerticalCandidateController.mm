@@ -77,7 +77,6 @@ static const CGFloat kMorePagesIndicatorWidth = 10.0;
   _keyFrame = NSOffsetRect(key, -NSMinX(row), -NSMinY(row));
   _textFrame = NSOffsetRect(text, -NSMinX(row), -NSMinY(row));
   _rowHeight = NSHeight(row);
-  _rowWidth = NSWidth(row);
   _leftInset = NSMinX([tableView convertRect:row toView:[self superview]]);
 }
 - (CGFloat)widthOfColumn:(NSUInteger)column {
@@ -86,9 +85,7 @@ static const CGFloat kMorePagesIndicatorWidth = 10.0;
     [_textCell setObjectValue:[self attributedCandidate:candidate]];
     width = MAX(width, ceil([_textCell cellSize].width));
   }
-  CGFloat fitted = NSMinX(_textFrame) + MIN(width, 160.0) + 2.0;
-  // the first column keeps the collapsed list's width
-  return column == 0 ? MAX(_rowWidth, fitted) : fitted;
+  return NSMinX(_textFrame) + MIN(width, 160.0) + 2.0;
 }
 - (CGFloat)leftOfColumn:(NSUInteger)column {
   CGFloat left = _leftInset;
