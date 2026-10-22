@@ -225,6 +225,10 @@ file for terms.
                        valueForKey:@"ResetTemporaryEnglishOnApplicationSwitch"]
                        isEqualToString:@"false"]];
 
+  [_expandableCandidatePanelCheckBox
+      setIntValue:![[_takaoDictionary valueForKey:@"ExpandableCandidatePanel"]
+                       isEqualToString:@"false"]];
+
 #if (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_5)
   if ([[_takaoDictionary valueForKey:@"ToggleInputMethodWithControlBackslash"]
           isEqualToString:@"true"])
@@ -324,6 +328,7 @@ file for terms.
   [_takaoDictionary setValue:@"true" forKey:@"ShiftTogglesTemporaryEnglish"];
   [_takaoDictionary setValue:@"true"
                       forKey:@"ResetTemporaryEnglishOnApplicationSwitch"];
+  [_takaoDictionary setValue:@"true" forKey:@"ExpandableCandidatePanel"];
 
   LFRetainAssign(_preferenceFilePath,
                  [TakaoHelper plistFilePath:PLIST_GLOBAL_FILENAME]);
@@ -380,6 +385,11 @@ file for terms.
       setValue:([_resetTemporaryEnglishOnApplicationSwitchCheckBox intValue]
                     ? @"true" : @"false")
         forKey:@"ResetTemporaryEnglishOnApplicationSwitch"];
+
+  [_takaoDictionary
+      setValue:([_expandableCandidatePanelCheckBox intValue] ? @"true"
+                                                            : @"false")
+        forKey:@"ExpandableCandidatePanel"];
 
   if ([_useCtrlBackSlashToggleInputMethod intValue])
     [_takaoDictionary setValue:@"true"

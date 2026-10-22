@@ -33,9 +33,185 @@
 }
 @end
 
+// the strips above and below the table that hold the page buttons
+static const CGFloat kPageControlMargin = 20.0;
+// where VerticalCandidateWindow.xib puts the page buttons
+static const CGFloat kCollapsedPageButtonX = 4.0;
+// room at the right edge for the arrow that says more pages follow
+static const CGFloat kMorePagesIndicatorWidth = 10.0;
+
+@implementation CVExpandedCandidateView
+
+- (void)dealloc {
+  [_columns release];
+  [_keyStrings release];
+  [_keyCell release];
+  [_textCell release];
+  [super dealloc];
+}
+- (BOOL)isFlipped {
+  return YES;
+}
+- (NSAttributedString *)attributedCandidate:(NSString *)candidate {
+  return [[[NSAttributedString alloc]
+      initWithString:candidate
+          attributes:[NSDictionary
+                         dictionaryWithObject:[NSFont systemFontOfSize:_fontSize]
+                                       forKey:NSFontAttributeName]] autorelease];
+}
+- (void)adoptLayoutOfTableView:(NSTableView *)tableView {
+  NSTableColumn *keyColumn = [tableView tableColumnWithIdentifier:@"key"];
+  NSTableColumn *textColumn = [tableView tableColumnWithIdentifier:@"candidate"];
+  [_keyCell release];
+  _keyCell = [[keyColumn dataCell] copy];
+  [_textCell release];
+  _textCell = [[textColumn dataCell] copy];
+
+  NSRect row = [tableView rectOfRow:0];
+  NSRect key = [tableView
+      frameOfCellAtColumn:[[tableView tableColumns] indexOfObject:keyColumn]
+                      row:0];
+  NSRect text = [tableView
+      frameOfCellAtColumn:[[tableView tableColumns] indexOfObject:textColumn]
+                      row:0];
+  _keyFrame = NSOffsetRect(key, -NSMinX(row), -NSMinY(row));
+  _textFrame = NSOffsetRect(text, -NSMinX(row), -NSMinY(row));
+  _rowHeight = NSHeight(row);
+  _rowWidth = NSWidth(row);
+  _leftInset = NSMinX([tableView convertRect:row toView:[self superview]]);
+}
+- (CGFloat)widthOfColumn:(NSUInteger)column {
+  CGFloat width = 0;
+  for (NSString *candidate in [_columns objectAtIndex:column]) {
+    [_textCell setObjectValue:[self attributedCandidate:candidate]];
+    width = MAX(width, ceil([_textCell cellSize].width));
+  }
+  CGFloat fitted = NSMinX(_textFrame) + MIN(width, 160.0) + 2.0;
+  // the first column keeps the collapsed list's width
+  return column == 0 ? MAX(_rowWidth, fitted) : fitted;
+}
+- (CGFloat)leftOfColumn:(NSUInteger)column {
+  CGFloat left = _leftInset;
+  for (NSUInteger index = 0; index < column; index++)
+    left += [self widthOfColumn:index];
+  return left;
+}
+- (void)setColumns:(NSArray *)columns
+        keyStrings:(NSArray *)keyStrings
+     currentColumn:(NSUInteger)currentColumn
+    highlightedRow:(NSUInteger)highlightedRow
+          rowCount:(NSUInteger)rowCount
+      hasMorePages:(BOOL)hasMorePages
+          fontSize:(float)fontSize {
+  [_columns release];
+  _columns = [columns copy];
+  [_keyStrings release];
+  _keyStrings = [keyStrings copy];
+  _currentColumn = currentColumn;
+  _highlightedRow = highlightedRow;
+  _rowCount = rowCount;
+  _hasMorePages = hasMorePages;
+  _fontSize = fontSize;
+  [self setNeedsDisplay:YES];
+}
+- (NSSize)preferredSize {
+  return NSMakeSize(ceil([self leftOfColumn:[_columns count]] + _leftInset +
+                         (_hasMorePages ? kMorePagesIndicatorWidth : 0)),
+                    ceil(_rowHeight * _rowCount));
+}
+- (NSRect)rectForColumn:(NSUInteger)column row:(NSUInteger)row {
+  return NSMakeRect([self leftOfColumn:column], _rowHeight * row,
+                    [self widthOfColumn:column], _rowHeight);
+}
+- (void)drawRect:(NSRect)dirtyRect {
+  NSColor *foreground = [NSColor whiteColor];
+  NSColor *fromColor = [NSColor highlightGradientFromColor];
+  NSGradient *gradient =
+      [[[NSGradient alloc] initWithStartingColor:fromColor
+                                     endingColor:[fromColor gradientToColor]]
+          autorelease];
+
+  for (NSUInteger column = 0; column < [_columns count]; column++) {
+    NSArray *candidates = [_columns objectAtIndex:column];
+    BOOL active = column == _currentColumn;
+    for (NSUInteger row = 0; row < [candidates count]; row++) {
+      NSRect cell = [self rectForColumn:column row:row];
+      if (active && row == _highlightedRow) {
+        [gradient drawInRect:cell angle:90.0];
+      }
+      if (active && row < [_keyStrings count] &&
+          [[_keyStrings objectAtIndex:row] length]) {
+        [_keyCell setObjectValue:[CVTextDecoration
+                                     imageWithACharacterInACircle:
+                                         [_keyStrings objectAtIndex:row]
+                                                       foreground:foreground
+                                                       background:[NSColor
+                                                                      blackColor]]];
+        [_keyCell drawWithFrame:NSOffsetRect(_keyFrame, NSMinX(cell),
+                                             NSMinY(cell))
+                         inView:self];
+      }
+      NSRect textFrame = NSOffsetRect(_textFrame, NSMinX(cell), NSMinY(cell));
+      textFrame.size.width = NSMaxX(cell) - NSMinX(textFrame);
+      [_textCell
+          setObjectValue:[self attributedCandidate:[candidates objectAtIndex:row]]];
+      // other columns are only a preview, so they recede behind the active one
+      [(NSTextFieldCell *)_textCell
+          setTextColor:active ? foreground
+                              : [foreground colorWithAlphaComponent:0.55]];
+      [_textCell drawWithFrame:textFrame inView:self];
+    }
+  }
+
+  if (_hasMorePages) {
+    CGFloat x = [self leftOfColumn:[_columns count]] + 2;
+    CGFloat y = NSMidY([self bounds]);
+    NSBezierPath *arrow = [NSBezierPath bezierPath];
+    [arrow moveToPoint:NSMakePoint(x, y - 3)];
+    [arrow lineToPoint:NSMakePoint(x + 5, y)];
+    [arrow lineToPoint:NSMakePoint(x, y + 3)];
+    [arrow closePath];
+    [[foreground colorWithAlphaComponent:0.7] setFill];
+    [arrow fill];
+  }
+}
+- (void)setClickable:(BOOL)flag {
+  _clickable = flag;
+}
+- (void)setTarget:(id)target action:(SEL)action {
+  _target = target;
+  _action = action;
+}
+- (NSInteger)clickedColumn {
+  return _clickedColumn;
+}
+- (NSInteger)clickedRow {
+  return _clickedRow;
+}
+- (void)mouseDown:(NSEvent *)theEvent {
+  _clickedColumn = -1;
+  _clickedRow = -1;
+  if (!_clickable) return;
+
+  NSPoint point = [self convertPoint:[theEvent locationInWindow] fromView:nil];
+  for (NSUInteger column = 0; column < [_columns count]; column++) {
+    NSUInteger count = [[_columns objectAtIndex:column] count];
+    for (NSUInteger row = 0; row < count; row++) {
+      if (NSPointInRect(point, [self rectForColumn:column row:row])) {
+        _clickedColumn = column;
+        _clickedRow = row;
+        [_target performSelector:_action withObject:self];
+        return;
+      }
+    }
+  }
+}
+@end
+
 @implementation CVVerticalCandidateController
 
 - (void)dealloc {
+  [_expandedView release];
   [_candidateArray release];
   [_backgroundColor release];
   [_foregroundColor release];
@@ -105,6 +281,16 @@
   [_previousButton setHidden:YES];
   [_nextButton setHidden:YES];
 
+  _expandedView = [[CVExpandedCandidateView alloc] initWithFrame:NSZeroRect];
+  _pageButtonOffset = 1;
+  _collapsedTopGap = kPageControlMargin;
+  [_expandedView setTarget:self action:@selector(sendExpandedKey:)];
+  [_expandedView setHidden:YES];
+  // below the page buttons, which stay clickable on top of it
+  [[[self window] contentView] addSubview:_expandedView
+                               positioned:NSWindowBelow
+                               relativeTo:nil];
+
   _sending = NO;
 }
 - (void)setFontHeight:(float)newHeight {
@@ -121,7 +307,22 @@
 
   _sending = NO;
 
-  NSPoint newPosition = position;
+  [[[self window] contentView] setBackgroundFillColor:_backgroundColor];
+  [[[self window] contentView] setBorderColor:_foregroundColor];
+
+  NSColor *highlightColor = [NSColor highlightGradientFromColor];
+  [_previousButton setImage:[self imagePrev:_foregroundColor]];
+  [_previousButton setAlternateImage:[self imagePrev:highlightColor]];
+  [_nextButton setImage:[self imageNext:_foregroundColor]];
+  [_nextButton setAlternateImage:[self imageNext:highlightColor]];
+
+  if (panel->isExpanded()) {
+    [self updateExpandedDisplay:panel atPoint:position];
+    return;
+  }
+  [_expandedView setHidden:YES];
+  [_scrollView setHidden:NO];
+  [_promptTextField setHidden:NO];
 
   if (_candidateArray)
     [_candidateArray removeAllObjects];
@@ -131,12 +332,6 @@
   [[[self window] contentView] setBackgroundFillColor:_backgroundColor];
   [[[self window] contentView] setBorderColor:_foregroundColor];
   [_tableView setTablebackgroundColor:_backgroundColor];
-
-  NSColor *highlightColor = [NSColor highlightGradientFromColor];
-  [_previousButton setImage:[self imagePrev:_foregroundColor]];
-  [_previousButton setAlternateImage:[self imagePrev:highlightColor]];
-  [_nextButton setImage:[self imageNext:_foregroundColor]];
-  [_nextButton setAlternateImage:[self imageNext:highlightColor]];
 
   // update the content
   size_t fromIndex = panel->currentPage() * panel->candidatesPerPage();
@@ -219,9 +414,112 @@
   [_tableView setFrame:tableFrame];
   [_tableView sizeToFit];
 
+  [self placeWindowWithSize:NSMakeSize(tableFrame.size.width,
+                                       tableFrame.size.height + 40)
+                    atPoint:position];
+  [self placePageButtonsAtX:kCollapsedPageButtonX];
+
+  // The expanded grid copies this layout. Measure it now: once expanded, the
+  // hidden table stretches with the wider window.
+  if ([_tableView numberOfRows] > 0) {
+    NSView *contentView = [[self window] contentView];
+    [_expandedView adoptLayoutOfTableView:_tableView];
+    NSRect row = [_tableView convertRect:[_tableView rectOfRow:0]
+                                  toView:contentView];
+    _collapsedTopGap = NSHeight([contentView bounds]) - NSMaxY(row);
+    _pageButtonOffset = kCollapsedPageButtonX - NSMinX(row);
+  }
+
+  if (panel->isInControl()) {
+    _allowClick = YES;
+    [_tableView setAllowsEmptySelection:NO];
+    [_tableView selectRowIndexes:[NSIndexSet
+                                     indexSetWithIndex:(int)highlightedIndex]
+            byExtendingSelection:NO];
+  } else {
+    [_tableView setAllowsEmptySelection:YES];
+    [_tableView deselectAll:self];
+    _allowClick = NO;
+  }
+
+  // show if it's visible--after update
+  if (panel->isVisible()) [[self window] makeKeyAndOrderFront:self];
+}
+- (void)updateExpandedDisplay:(PVVerticalCandidatePanel *)panel
+                      atPoint:(NSPoint)position {
+  [_scrollView setHidden:YES];
+  [_promptTextField setHidden:NO];
+  [_promptTextField
+      setStringValue:[NSString stringWithUTF8String:panel->prompt().c_str()]];
+  [_pageIndicatorTextField
+      setStringValue:[NSString stringWithFormat:@"%zu/%zu",
+                                                panel->currentPage() + 1,
+                                                panel->pageCount()]];
+  [_pageIndicatorTextField setHidden:NO];
+  [_previousButton setHidden:NO];
+  [_nextButton setHidden:NO];
+
+  OVCandidateList *list = panel->candidateList();
+  size_t perPage = panel->candidatesPerPage();
+  size_t firstPage = panel->expandedFirstPage();
+  size_t columnCount = panel->expandedPageCount();
+  NSMutableArray *columns = [NSMutableArray array];
+  for (size_t column = 0; column < columnCount; column++) {
+    NSMutableArray *candidates = [NSMutableArray array];
+    size_t from = (firstPage + column) * perPage;
+    for (size_t index = from; index < from + perPage && index < list->size();
+         index++) {
+      [candidates addObject:[NSString stringWithUTF8String:
+                                          list->candidateAtIndex(index).c_str()]];
+    }
+    [columns addObject:candidates];
+  }
+
+  NSMutableArray *keyStrings = [NSMutableArray array];
+  for (size_t index = 0; index < panel->currentPageCandidateCount(); index++) {
+    [keyStrings addObject:[NSString stringWithUTF8String:panel->candidateKeyAtIndex(index)
+                                                         .receivedString()
+                                                         .c_str()]];
+  }
+
+  [_expandedView setColumns:columns
+                 keyStrings:keyStrings
+              currentColumn:panel->currentPage() - firstPage
+             highlightedRow:panel->currentHightlightIndex()
+                   rowCount:perPage
+               hasMorePages:firstPage + columnCount < panel->pageCount()
+                   fontSize:_candidateTextHeight];
+  [_expandedView setClickable:panel->isInControl()];
+
+  // Same window height and row positions as the collapsed table, so
+  // expanding leaves its rows exactly where they were.
+  NSSize size = [_expandedView preferredSize];
+  CGFloat height = ([_tableView rowHeight] + 2) * perPage + 40;
+  [self placeWindowWithSize:NSMakeSize(size.width, height) atPoint:position];
+  [_expandedView setFrame:NSMakeRect(0, height - _collapsedTopGap - size.height,
+                                     size.width, size.height)];
+  [_expandedView setHidden:NO];
+  [self placePageButtonsAtX:[_expandedView
+                                leftOfColumn:panel->currentPage() - firstPage] +
+                            _pageButtonOffset];
+
+  if (panel->isVisible()) [[self window] makeKeyAndOrderFront:self];
+}
+// the page buttons sit over the key column of the current page
+- (void)placePageButtonsAtX:(CGFloat)x {
+  NSRect bounds = [[[self window] contentView] bounds];
+  NSRect previousFrame = [_previousButton frame];
+  previousFrame.origin =
+      NSMakePoint(x, NSMaxY(bounds) - NSHeight(previousFrame));
+  [_previousButton setFrame:previousFrame];
+  NSRect nextFrame = [_nextButton frame];
+  nextFrame.origin = NSMakePoint(x, -1);
+  [_nextButton setFrame:nextFrame];
+}
+- (void)placeWindowWithSize:(NSSize)size atPoint:(NSPoint)position {
+  NSPoint newPosition = position;
   NSRect windowFrame = [[self window] frame];
-  windowFrame.size.width = tableFrame.size.width;
-  windowFrame.size.height = tableFrame.size.height + 40;
+  windowFrame.size = size;
   windowFrame.origin.x = newPosition.x;
 
   NSRect frame = [[NSScreen mainScreen] visibleFrame];
@@ -259,21 +557,6 @@
   windowFrame.origin = newPosition;
 
   [[self window] setFrame:windowFrame display:YES];
-
-  if (panel->isInControl()) {
-    _allowClick = YES;
-    [_tableView setAllowsEmptySelection:NO];
-    [_tableView selectRowIndexes:[NSIndexSet
-                                     indexSetWithIndex:(int)highlightedIndex]
-            byExtendingSelection:NO];
-  } else {
-    [_tableView setAllowsEmptySelection:YES];
-    [_tableView deselectAll:self];
-    _allowClick = NO;
-  }
-
-  // show if it's visible--after update
-  if (panel->isVisible()) [[self window] makeKeyAndOrderFront:self];
 }
 - (void)hide {
   [[self window] orderOut:self];
@@ -288,6 +571,22 @@
   string keyString = _panel->candidateKeyAtIndex(selectedItem).receivedString();
   [[CVSendKey sharedSendKey]
       typeString:[NSString stringWithUTF8String:keyString.c_str()]];
+}
+
+- (void)sendExpandedKey:(id)sender {
+  if (_sending) return;
+  NSInteger column = [_expandedView clickedColumn];
+  NSInteger row = [_expandedView clickedRow];
+  if (column < 0 || row < 0) return;
+  _panel->goToPage(_panel->expandedFirstPage() + (size_t)column);
+  _panel->setHighlightIndex((size_t)row);
+  OVKey selectionKey = _panel->selectionKeyAtIndex((size_t)row);
+  // typeString posts the key after a delay; ignore clicks until it lands
+  _sending = YES;
+  [_expandedView setClickable:NO];
+  [[CVSendKey sharedSendKey]
+      typeString:[NSString stringWithUTF8String:selectionKey.receivedString()
+                                                    .c_str()]];
 }
 
 - (IBAction)updateSelectedCandidate:(id)sender {

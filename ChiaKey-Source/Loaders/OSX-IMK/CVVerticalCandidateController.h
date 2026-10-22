@@ -13,6 +13,48 @@ using namespace OpenVanilla;
 @interface CVPageButton : NSButton
 @end
 
+// Several pages side by side, one page per column; only the current column
+// has keys.
+@interface CVExpandedCandidateView : NSView {
+  NSArray *_columns;
+  NSArray *_keyStrings;
+  NSUInteger _currentColumn;
+  NSUInteger _highlightedRow;
+  NSUInteger _rowCount;
+  BOOL _hasMorePages;
+  float _fontSize;
+  // copied from the collapsed table, so each column renders exactly like it
+  NSCell *_keyCell;
+  NSCell *_textCell;
+  NSRect _keyFrame;
+  NSRect _textFrame;
+  CGFloat _rowHeight;
+  CGFloat _rowWidth;
+  CGFloat _leftInset;
+
+  BOOL _clickable;
+  NSInteger _clickedColumn;
+  NSInteger _clickedRow;
+  id _target;
+  SEL _action;
+}
+- (void)setColumns:(NSArray *)columns
+        keyStrings:(NSArray *)keyStrings
+     currentColumn:(NSUInteger)currentColumn
+    highlightedRow:(NSUInteger)highlightedRow
+          rowCount:(NSUInteger)rowCount
+      hasMorePages:(BOOL)hasMorePages
+          fontSize:(float)fontSize;
+// the table must already hold a row; the view must be in its window
+- (void)adoptLayoutOfTableView:(NSTableView *)tableView;
+- (NSSize)preferredSize;
+- (CGFloat)leftOfColumn:(NSUInteger)column;
+- (void)setClickable:(BOOL)flag;
+- (void)setTarget:(id)target action:(SEL)action;
+- (NSInteger)clickedColumn;
+- (NSInteger)clickedRow;
+@end
+
 @interface CVVerticalCandidateController : NSWindowController {
   IBOutlet id _scrollView;
   IBOutlet CVFloatingTableView *_tableView;
@@ -33,6 +75,10 @@ using namespace OpenVanilla;
   BOOL _sending;
 
   float _candidateTextHeight;
+
+  CVExpandedCandidateView *_expandedView;
+  CGFloat _pageButtonOffset;
+  CGFloat _collapsedTopGap;
 }
 
 - (void)setFontHeight:(float)newHeight;
