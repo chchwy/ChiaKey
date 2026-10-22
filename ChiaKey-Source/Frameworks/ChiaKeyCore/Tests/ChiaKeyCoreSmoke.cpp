@@ -389,6 +389,19 @@ int RunCandidateExpansionSmoke(const std::string& repoRoot,
     return Fail("Right on page one should expand after paging back");
   engine->reset();
 
+  openCandidates();
+  for (std::size_t i = 0; i < perPage; ++i) press(31);  // Down onto page two,
+  press(29);                                            // expand there,
+  panel = engine->snapshot().candidateState;
+  if (!panel.expanded || panel.currentPage != 1)
+    return Fail("Right should expand from page two after Down");
+  press(28);  // and collapse again;
+  press(29);  // Right pages instead of expanding until back on page one.
+  panel = engine->snapshot().candidateState;
+  if (panel.expanded || panel.currentPage != 2)
+    return Fail("Right should page after collapsing away from page one");
+  engine->reset();
+
   ChiaKey::EngineConfig config = engine->runtime()->config();
   config.expandableCandidatePanel = false;
   engine->runtime()->setConfig(config);

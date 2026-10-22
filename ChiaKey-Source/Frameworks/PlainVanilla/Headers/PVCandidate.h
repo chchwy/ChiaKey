@@ -267,6 +267,8 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
     } else if (key == m_leftKey) {
       if (m_currentPage == m_expandedAnchorPage) {
         m_expanded = false;
+        // Right keeps paging until back on the first page, as after Left while collapsed
+        if (m_currentPage != 0) m_expansionSuspended = true;
         return PVCandidateState::UpdatePage;
       }
       moveToPage(m_currentPage - 1);
@@ -309,6 +311,8 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
       if (state != PVCandidateState::Ignored) return state;
     } else if (m_expansionEnabled && pageCount() > 1 &&
                isKeyInVector(key, m_expandKeys) &&
+               !isKeyInVector(key, m_candidateKeys) &&
+               !isKeyInVector(key, m_chooseHighlightedCandidateKeys) &&
                (!m_expansionSuspended || m_currentPage == 0)) {
       m_expansionSuspended = false;
       m_expanded = true;
