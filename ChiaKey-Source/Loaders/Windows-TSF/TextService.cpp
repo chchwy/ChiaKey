@@ -1850,11 +1850,10 @@ void TextService::updateCandidateWindow(TfEditCookie editCookie, ITfContext* con
             // A no-activate click keeps the text field focused. Capture its
             // context, and let TSF grant a write lock before accepting it.
             ComPtr<ITfContext> target = candidateContext_;
-            candidateWindow_.setSelectionCallback([this, target, generation, first =
-                (result.candidatePage - 1) * result.candidatesPerPage](size_t index) {
+            candidateWindow_.setSelectionCallback([this, target, generation](size_t index) {
                 if (!target || !keyboardAvailable(target.Get()) || candidateContext_ != target) return;
                 KeyEvent event;
-                event.candidateIndex = first + index;
+                event.candidateIndex = index;
                 event.candidateGeneration = generation;
                 BOOL eaten = FALSE;
                 runKeySession(target.Get(), event, &eaten);

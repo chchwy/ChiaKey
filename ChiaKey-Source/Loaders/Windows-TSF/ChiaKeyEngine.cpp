@@ -44,6 +44,7 @@ bool SameConfig(const ChiaKey::EngineConfig& a, const ChiaKey::EngineConfig& b) 
            a.candidateSelectionKeys == b.candidateSelectionKeys &&
            a.candidateCursorAtEndOfTargetBlock == b.candidateCursorAtEndOfTargetBlock &&
            a.showCandidateListWithSpace == b.showCandidateListWithSpace &&
+           a.expandableCandidatePanel == b.expandableCandidatePanel &&
            a.clearComposingTextWithEsc == b.clearComposingTextWithEsc &&
            a.shiftKeyAlwaysCommitUppercaseCharacters ==
                b.shiftKeyAlwaysCommitUppercaseCharacters &&
@@ -376,6 +377,11 @@ void RefreshSettingsLocked(RuntimeHolder& holder, bool force) {
         }
         if (holder.runtime->reverseLookupMethod() != holder.frontend.reverseLookupMethod)
             holder.runtime->setReverseLookupMethod(holder.frontend.reverseLookupMethod);
+        ChiaKey::EngineConfig config = holder.runtime->config();
+        if (config.expandableCandidatePanel != holder.frontend.expandableCandidatePanel) {
+            config.expandableCandidatePanel = holder.frontend.expandableCandidatePanel;
+            holder.runtime->setConfig(config);
+        }
         holder.frontendStamp = frontendStamp;
     }
 }
@@ -695,6 +701,9 @@ EngineResult MakeResult(const ChiaKey::EngineState& state, bool showNotification
         result.candidatesPerPage = std::max(panel.candidatesPerPage, result.candidates.size());
         result.candidatePage = panel.currentPage + 1;
         result.candidatePageCount = std::max<size_t>(panel.pageCount, 1);
+        result.candidatesExpanded = panel.expanded && panel.expandedPageCount > 0;
+        result.expandedFirstPage = panel.expandedFirstPage;
+        result.expandedPageCount = panel.expandedPageCount;
     }
 
     result.message = Utf8ToWide(state.tooltip);
@@ -708,6 +717,7 @@ ChiaKey::EngineConfig ReadEngineConfig(const std::string& preferencesPath,
                                        ChiaKey::EngineConfig config) {
     const auto frontend = ReadFrontendSettings(preferencesPath);
     config.locale = frontend.uiLanguage == "en" ? "en" : frontend.uiLanguage == "zh-CN" ? "zh_CN" : "zh_TW";
+    config.expandableCandidatePanel = frontend.expandableCandidatePanel;
     const std::string path = OVPathHelper::PathCat(preferencesPath, kSmartMandarinPlist);
     if (!OVPathHelper::PathExists(path)) return config;
     // the map points into the plist's own dictionary, so the plist has to outlive it
@@ -768,6 +778,8 @@ FrontendSettings ReadFrontendSettings(const std::string& preferencesPath) {
     settings.associatedPhrases =
         BoolValue(map, "EnableAssociatedPhrases", settings.associatedPhrases);
     settings.simplifiedOutput = BoolValue(map, "SimplifiedOutput", settings.simplifiedOutput);
+    settings.expandableCandidatePanel =
+        BoolValue(map, "ExpandableCandidatePanel", settings.expandableCandidatePanel);
     if (PVPlistValue* hidden = plist.rootDictionary()->valueForKey("ModulesSuppressedFromUI")) {
         for (size_t index = 0; index < hidden->arraySize(); ++index) {
             PVPlistValue* identifier = hidden->arrayElementAtIndex(index);

@@ -32,6 +32,7 @@ public:
     void showMessage(HWND owner, const RECT& textRect, const std::wstring& message);
     void hide();
     bool isVisible() const { return window_ && IsWindowVisible(window_); }
+    // receives an absolute index into EngineResult::allCandidates
     void setSelectionCallback(std::function<void(size_t)> callback) { select_ = std::move(callback); }
 
 private:
@@ -42,10 +43,14 @@ private:
     void paint();
     void paintCandidates(HDC dc, const RECT& client);
     void paintMessage(HDC dc, const RECT& client);
+    void paintExpanded(HDC dc, const RECT& client);
+    void paintKey(HDC dc, int left, int rowTop, const std::wstring& key, bool highlighted);
+    void paintIndicator(HDC dc, const RECT& client, int footerTop, int arrowLeft);
     void ensureWindow(HWND owner);
     void updateFonts(UINT dpi);
     void releaseFonts();
     SIZE measure();
+    bool hasMorePages() const { return expanded_ && expandedFirstPage_ + expandedPageCount_ < pageCount_; }
     int scale(int value) const;
 
     HWND window_ = nullptr;
@@ -63,8 +68,15 @@ private:
     size_t pageCount_ = 0;
     std::wstring message_;
     bool horizontal_ = false;
+    bool expanded_ = false;
+    size_t firstIndex_ = 0;
+    size_t expandedFirstPage_ = 0;
+    size_t expandedPageCount_ = 0;
+    std::vector<std::wstring> allCandidates_;
     HFONT hintFont_ = nullptr;
     std::vector<RECT> candidateRects_;
+    // absolute candidate index of each rect
+    std::vector<size_t> rectIndexes_;
     std::function<void(size_t)> select_;
 };
 

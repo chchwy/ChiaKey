@@ -41,6 +41,10 @@ struct EngineResult {
     // 1-based, as the page indicator shows it
     size_t candidatePage = 0;
     size_t candidatePageCount = 0;
+    // pages [expandedFirstPage, +expandedPageCount) of allCandidates show as columns
+    bool candidatesExpanded = false;
+    size_t expandedFirstPage = 0;
+    size_t expandedPageCount = 0;
     std::wstring message;
     std::wstring notification;
 };
@@ -89,6 +93,8 @@ struct FrontendSettings {
     std::string reverseLookupMethod;
     bool associatedPhrases = false;
     bool simplifiedOutput = false;
+    // Right arrow expands a vertical candidate list into columns of pages
+    bool expandableCandidatePanel = true;
     // input method identifiers left out of the menus
     std::vector<std::string> suppressedInputMethods;
 };
