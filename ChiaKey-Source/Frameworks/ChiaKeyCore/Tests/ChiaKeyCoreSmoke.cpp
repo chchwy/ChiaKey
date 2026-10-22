@@ -293,6 +293,114 @@ int RunPhraseCompletionSmoke(const std::string& repoRoot,
   return 0;
 }
 
+int RunCandidateExpansionSmoke(const std::string& repoRoot,
+                               const std::string& writableDir,
+                               const std::string& lexiconDatabasePath) {
+  ChiaKey::RuntimePaths paths;
+  paths.loadedPath = paths.resourcePath = repoRoot + "/ChiaKey-Source";
+  paths.writablePath = writableDir;
+  paths.lexiconDatabasePath = lexiconDatabasePath;
+  std::string error;
+  auto engine = ChiaKey::Engine::Create(paths, ChiaKey::EngineConfig(), &error);
+  if (!engine) return Fail("expansion engine: " + error);
+  engine->runtime()->setPrimaryInputMethod(ChiaKey::Runtime::SmartMandarinIdentifier());
+  engine->runtime()->setAssociatedPhrasesEnabled(false);
+  const auto press = [&](int code) {
+    ChiaKey::KeyEvent key;
+    key.keyCode = code;
+    return engine->handleKey(key);
+  };
+  const auto openCandidates = [&]() {
+    engine->reset();
+    // ㄕˋ has several pages of candidates
+    for (char key : std::string("g4")) engine->handleAsciiKey(key);
+    press(31);
+    return engine->snapshot().candidateState;
+  };
+
+  ChiaKey::CandidateState panel = openCandidates();
+  if (!panel.visible || panel.horizontal || panel.pageCount < 3 || panel.expanded)
+    return Fail("expected a collapsed vertical list of several pages");
+  const std::size_t perPage = panel.candidatesPerPage;
+
+  press(29);  // Right expands in place; the open page stays the first column.
+  panel = engine->snapshot().candidateState;
+  if (!panel.expanded || panel.currentPage != 0 || panel.highlightedIndex != 0 ||
+      panel.expandedFirstPage != 0 ||
+      panel.expandedPageCount != std::min<std::size_t>(panel.pageCount, 6))
+    return Fail("Right did not expand the list in place");
+
+  press(31);  // Down moves within the column,
+  press(29);  // Right keeps the row on the next column.
+  panel = engine->snapshot().candidateState;
+  if (!panel.expanded || panel.currentPage != 1 || panel.highlightedIndex != 1 ||
+      panel.highlightedCandidateIndex != perPage + 1)
+    return Fail("expanded arrows did not move across the grid");
+
+  press(30);
+  press(30);  // Up from the top row wraps to the previous column's end.
+  panel = engine->snapshot().candidateState;
+  if (panel.currentPage != 0 || panel.highlightedIndex != perPage - 1)
+    return Fail("Up did not wrap to the previous column");
+
+  for (std::size_t i = 0; i < 7 && i + 1 < panel.pageCount; ++i) press(29);
+  panel = engine->snapshot().candidateState;
+  if (panel.pageCount > 7 &&
+      (panel.currentPage != 7 || panel.expandedFirstPage != 2))
+    return Fail("expanded columns did not scroll with the current page");
+
+  // Left scrolls back past the visible columns and collapses only at the
+  // column the list was expanded from.
+  while (engine->snapshot().candidateState.currentPage > 0) {
+    press(28);
+    if (!engine->snapshot().candidateState.expanded)
+      return Fail("Left collapsed before reaching the first column");
+  }
+  if (engine->snapshot().candidateState.expandedFirstPage != 0)
+    return Fail("Left did not scroll back to the first column");
+  press(28);
+  panel = engine->snapshot().candidateState;
+  if (!panel.visible || panel.expanded || panel.currentPage != 0)
+    return Fail("Left from the first column should only collapse");
+
+  press(29);
+  press(27);  // Esc closes the whole list, expanded or not.
+  if (engine->snapshot().candidateState.visible)
+    return Fail("Esc should close the expanded list");
+
+  panel = openCandidates();
+  press(29);
+  press(29);
+  panel = engine->snapshot().candidateState;
+  const std::string expected = panel.candidates[perPage];
+  engine->handleAsciiKey(panel.selectionKeys.front()[0]);
+  ChiaKey::EngineState state = engine->snapshot();
+  if (state.candidateState.visible || state.composingText != expected)
+    return Fail("selection keys should pick from the current column");
+
+  panel = openCandidates();
+  press(28);  // Left wraps to the last page and keeps the list collapsed,
+  press(29);  // so Right turns pages until the list is back on page one,
+  panel = engine->snapshot().candidateState;
+  if (panel.expanded || panel.currentPage != 0)
+    return Fail("Right should page after Left instead of expanding");
+  press(29);  // where it expands again.
+  if (!engine->snapshot().candidateState.expanded)
+    return Fail("Right on page one should expand after paging back");
+  engine->reset();
+
+  ChiaKey::EngineConfig config = engine->runtime()->config();
+  config.expandableCandidatePanel = false;
+  engine->runtime()->setConfig(config);
+  openCandidates();
+  press(29);
+  panel = engine->snapshot().candidateState;
+  if (panel.expanded || panel.currentPage != 1)
+    return Fail("disabled expansion should leave Right as next page");
+  engine->reset();
+  return 0;
+}
+
 int RunCppSmoke(const std::string& repoRoot, const std::string& writableDir,
                 const std::string& lexiconDatabasePath) {
   ChiaKey::EnginePaths paths;
@@ -1640,6 +1748,9 @@ int main(int argc, char* argv[]) {
   const std::string lexiconDatabasePath = argv[3];
 
   if (int result = RunPhraseCompletionSmoke(repoRoot, writableDir, lexiconDatabasePath))
+    return result;
+  if (int result =
+          RunCandidateExpansionSmoke(repoRoot, writableDir, lexiconDatabasePath))
     return result;
   if (int result = RunCppSmoke(repoRoot, writableDir, lexiconDatabasePath))
     return result;

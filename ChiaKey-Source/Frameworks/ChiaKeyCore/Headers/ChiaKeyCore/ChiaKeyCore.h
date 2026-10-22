@@ -51,6 +51,8 @@ struct EngineConfig {
   std::string candidateSelectionKeys;
   bool candidateCursorAtEndOfTargetBlock = false;
   bool showCandidateListWithSpace = true;
+  // Right arrow expands a vertical candidate list into columns of pages
+  bool expandableCandidatePanel = true;
   bool clearComposingTextWithEsc = false;
   bool shiftKeyAlwaysCommitUppercaseCharacters = false;
   std::size_t composingTextBufferSize = 20;
@@ -74,6 +76,10 @@ struct CandidateState {
   std::size_t candidatesPerPage = 0;
   std::size_t highlightedIndex = 0;
   std::size_t highlightedCandidateIndex = 0;
+  // when expanded, pages [expandedFirstPage, +expandedPageCount) show as columns
+  bool expanded = false;
+  std::size_t expandedFirstPage = 0;
+  std::size_t expandedPageCount = 0;
 };
 
 struct EngineState {
