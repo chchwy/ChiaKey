@@ -601,6 +601,7 @@ static const CGFloat kMorePagesIndicatorWidth = 10.0;
   _panel = panel;
 }
 - (IBAction)gotoNextPage:(id)sender {
+  if (_sending) return;
   _panel->goToNextPage();
   _panel->syncExpandedColumnsToCurrentPage();
   NSPoint p = [[self window] frame].origin;
@@ -608,6 +609,7 @@ static const CGFloat kMorePagesIndicatorWidth = 10.0;
   [self updateDisplay:_panel atPoint:p];
 }
 - (IBAction)gotoPreviousPage:(id)sender {
+  if (_sending) return;
   _panel->goToPreviousPage();
   _panel->syncExpandedColumnsToCurrentPage();
   NSPoint p = [[self window] frame].origin;
