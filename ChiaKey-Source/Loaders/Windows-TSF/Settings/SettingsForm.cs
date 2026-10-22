@@ -273,11 +273,13 @@ namespace ChiaKey.Settings
             AddPane(Ui.Text("關於(&B)"), "app.ico", BuildAboutPane());
 
             LoadSettings();
-            foreach (Control pane in panes) PreferenceLayout.Finish(pane);
             toolbar.ResumeLayout(false);
             content.ResumeLayout(false);
             ShowPane(Math.Max(0, Math.Min(initialPane, panes.Count - 1)));
             ResumeLayout(false);
+            // Resumed before the form has scaled, each nested control asked the form to
+            // scale it again, so margins grew with depth on high-DPI screens.
+            foreach (Control pane in panes) PreferenceLayout.Finish(pane);
             PerformLayout();
             Shown += delegate
             {

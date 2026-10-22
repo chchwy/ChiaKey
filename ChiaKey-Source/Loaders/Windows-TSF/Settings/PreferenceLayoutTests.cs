@@ -89,7 +89,7 @@ internal static class PreferenceLayoutTests
                     // ambient font of a standalone WinForms control.
                     Font bodyFont = form.Font;
                     page.Font = bodyFont;
-                    Label heading = (Label)((TableLayoutPanel)page.Tag).Controls[0];
+                    Label heading = (Label)((Control)page.Tag).Controls[0];
                     Font headingFont = heading.Font;
                     page.Parent.Controls.Remove(page);
                     page.Visible = true;
