@@ -390,6 +390,16 @@ int RunCandidateExpansionSmoke(const std::string& repoRoot,
   engine->reset();
 
   openCandidates();
+  press(28);                                            // suspend expansion,
+  press(29);                                            // page back to page one,
+  for (std::size_t i = 0; i < perPage; ++i) press(31);  // Down onto page two;
+  press(29);  // reaching page one ended the suspension, so Right expands.
+  panel = engine->snapshot().candidateState;
+  if (!panel.expanded || panel.currentPage != 1)
+    return Fail("Right should expand once page one was reached by any key");
+  engine->reset();
+
+  openCandidates();
   for (std::size_t i = 0; i < perPage; ++i) press(31);  // Down onto page two,
   press(29);                                            // expand there,
   panel = engine->snapshot().candidateState;

@@ -306,6 +306,8 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
  public:
   PVCandidateState::State handleKeyEvent(const OVKey& key,
                                          OVLoaderService* loaderService) {
+    // back on page one ends the suspension, whichever key got there
+    if (m_currentPage == 0) m_expansionSuspended = false;
     if (m_expanded) {
       PVCandidateState::State state = handleExpandedKeyEvent(key);
       if (state != PVCandidateState::Ignored) return state;
@@ -313,8 +315,7 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
                isKeyInVector(key, m_expandKeys) &&
                !isKeyInVector(key, m_candidateKeys) &&
                !isKeyInVector(key, m_chooseHighlightedCandidateKeys) &&
-               (!m_expansionSuspended || m_currentPage == 0)) {
-      m_expansionSuspended = false;
+               !m_expansionSuspended) {
       m_expanded = true;
       m_expandedFirstPage = m_currentPage;
       m_expandedAnchorPage = m_currentPage;
