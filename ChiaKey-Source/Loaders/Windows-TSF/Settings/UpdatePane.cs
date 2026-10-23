@@ -99,7 +99,7 @@ namespace ChiaKey.Settings
             SuspendLayout();
             DoubleBuffered = true;
             AutoScroll = true;
-            app = new Section(Ui.Text("輸入法更新"), Ui.Text("自動更新輸入法"));
+            app = new Section(Ui.Text("輸入法更新"), Ui.Text("自動檢查輸入法更新"));
             lexicon = new Section(Ui.Text("詞庫更新"), Ui.Text("自動更新詞庫"));
             TableLayoutPanel sections = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true,
                 ColumnCount = 1, RowCount = 2, Padding = new Padding(16), Margin = Padding.Empty };
@@ -214,5 +214,101 @@ namespace ChiaKey.Settings
         }
 
         internal void Save() { service.Configure(app.automatic.Checked, lexicon.automatic.Checked, beta.Checked); }
+    }
+
+    // What the background helper opens for an app update: nothing is downloaded until the
+    // user agrees, and each step is reported until the window is closed.
+    internal sealed class AppUpdatePrompt : Form
+    {
+        private readonly UpdateService service;
+        private readonly UpdateOffer offer;
+        private readonly Label message = new Label { AutoSize = true, MaximumSize = new Size(400, 0),
+            Margin = new Padding(0, 0, 0, 14) };
+        private readonly ProgressBar progress = new ProgressBar { Style = ProgressBarStyle.Marquee,
+            Size = new Size(400, 16), Margin = new Padding(0, 0, 0, 14), Visible = false };
+        private readonly Button install = PreferenceLayout.Button(Ui.Text("下載並安裝"));
+        private readonly Button later = PreferenceLayout.Button(Ui.Text("稍後提醒"));
+        private readonly Button skip = PreferenceLayout.Button(Ui.Text("略過這個版本"));
+        private readonly Button close = PreferenceLayout.Button(Ui.Text("關閉"));
+
+        internal AppUpdatePrompt(UpdateService service, UpdateOffer offer)
+        {
+            this.service = service;
+            this.offer = offer;
+            SuspendLayout();
+            AutoScaleDimensions = new SizeF(96F, 96F);
+            AutoScaleMode = AutoScaleMode.Dpi;
+            Text = Ui.Text("千秋輸入法更新");
+            Font = new Font("Microsoft JhengHei UI", 9F);
+            Icon = PhraseEditorForm.LoadIcon("app.ico");
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            StartPosition = FormStartPosition.CenterScreen;
+            AutoSize = true;
+            AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            Padding = new Padding(18, 16, 18, 12);
+            message.Text = Ui.Text("千秋輸入法 ") + offer.Version + Ui.Text(" 已推出，目前使用的是 ") +
+                service.AppReleaseVersion + Ui.Text("。") + "\n\n" +
+                Ui.Text("要下載並安裝嗎？安裝時 Windows 會詢問是否允許變更。");
+            FlowLayoutPanel buttons = new FlowLayoutPanel { AutoSize = true, WrapContents = false,
+                FlowDirection = FlowDirection.RightToLeft, Anchor = AnchorStyles.Right, Margin = Padding.Empty };
+            foreach (Button button in new[] { close, install, later, skip })
+            {
+                button.Margin = new Padding(8, 0, 0, 0);
+                buttons.Controls.Add(button);
+            }
+            close.Visible = false;
+            TableLayoutPanel layout = new TableLayoutPanel { AutoSize = true, ColumnCount = 1,
+                Dock = DockStyle.Fill, Margin = Padding.Empty };
+            layout.Controls.Add(message);
+            layout.Controls.Add(progress);
+            layout.Controls.Add(buttons);
+            Controls.Add(layout);
+            install.Click += async delegate { await Install(); };
+            later.Click += delegate { Close(); };
+            skip.Click += delegate
+            {
+                Plist preferences = service.Preferences;
+                preferences.SetString("SkippedAppVersion", offer.Version);
+                preferences.Save();
+                Close();
+            };
+            close.Click += delegate { Close(); };
+            AcceptButton = install;
+            CancelButton = later;
+            ResumeLayout(true);
+        }
+
+        private async Task Install()
+        {
+            install.Visible = later.Visible = skip.Visible = false;
+            progress.Visible = true;
+            message.Text = Ui.Text("正在下載千秋輸入法 ") + offer.Version + "…";
+            try
+            {
+                string installer = await Task.Run(delegate { return service.DownloadApp(offer); });
+                message.Text = Ui.Text("正在安裝千秋輸入法 ") + offer.Version + "…";
+                System.Diagnostics.Process process = UpdateService.InstallApp(installer, offer.Sha256, null, true);
+                int code = await Task.Run(delegate
+                {
+                    using (process) { process.WaitForExit(); return process.ExitCode; }
+                });
+                message.Text = code == 0
+                    ? Ui.Text("已更新至 ") + offer.Version + Ui.Text("。開著的程式會在輸入閒置時自動載入新版。")
+                    : Ui.Text("安裝沒有完成（代碼 ") + code + Ui.Text("）。");
+            }
+            catch (System.ComponentModel.Win32Exception error)
+            {
+                // 1223: the user declined the UAC prompt
+                message.Text = error.NativeErrorCode == 1223 ? Ui.Text("已取消安裝。") : Ui.Text("更新失敗：") + error.Message;
+            }
+            catch (Exception error) { message.Text = Ui.Text("更新失敗：") + error.Message; }
+            progress.Visible = false;
+            close.Visible = true;
+            AcceptButton = close;
+            CancelButton = close;
+            close.Focus();
+        }
     }
 }
