@@ -453,6 +453,78 @@ Version </en>
     <en>Checking for updates…</en>
   </string>
   <string>
+    <source>已略過本體 </source>
+    <en>Skipped app version </en>
+  </string>
+  <string>
+    <source>本體有新版本 </source>
+    <en>App update available: </en>
+  </string>
+  <string>
+    <source>千秋輸入法更新</source>
+    <en>ChiaKey Update</en>
+  </string>
+  <string>
+    <source>千秋輸入法 </source>
+    <en>ChiaKey </en>
+  </string>
+  <string>
+    <source> 已推出，目前使用的是 </source>
+    <en> is available. You are using </en>
+  </string>
+  <string>
+    <source>要下載並安裝嗎？安裝時 Windows 會詢問是否允許變更。</source>
+    <en>Download and install it? Windows will ask for permission to make changes.</en>
+  </string>
+  <string>
+    <source>下載並安裝</source>
+    <en>Download and Install</en>
+  </string>
+  <string>
+    <source>稍後提醒</source>
+    <en>Remind Me Later</en>
+  </string>
+  <string>
+    <source>略過這個版本</source>
+    <en>Skip This Version</en>
+  </string>
+  <string>
+    <source>關閉</source>
+    <en>Close</en>
+  </string>
+  <string>
+    <source>正在下載千秋輸入法 </source>
+    <en>Downloading ChiaKey </en>
+  </string>
+  <string>
+    <source>正在安裝千秋輸入法 </source>
+    <en>Installing ChiaKey </en>
+  </string>
+  <string>
+    <source>已更新至 </source>
+    <en>Updated to </en>
+  </string>
+  <string>
+    <source>。開著的程式會在輸入閒置時自動載入新版。</source>
+    <en>. Open apps load the new version when input is idle.</en>
+  </string>
+  <string>
+    <source>安裝沒有完成（代碼 </source>
+    <en>Installation did not finish (code </en>
+  </string>
+  <string>
+    <source>）。</source>
+    <en>).</en>
+  </string>
+  <string>
+    <source>。</source>
+    <en>.</en>
+  </string>
+  <string>
+    <source>已取消安裝。</source>
+    <en>Installation cancelled.</en>
+  </string>
+  <string>
     <source>泛用(&amp;E)</source>
     <en>G&amp;eneric</en>
   </string>
@@ -677,8 +749,8 @@ Version </en>
     <en>Update the lexicon automatically</en>
   </string>
   <string>
-    <source>自動更新輸入法</source>
-    <en>Update ChiaKey automatically</en>
+    <source>自動檢查輸入法更新</source>
+    <en>Check for ChiaKey updates automatically</en>
   </string>
   <string>
     <source>自訂…</source>

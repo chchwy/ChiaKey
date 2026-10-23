@@ -274,11 +274,13 @@ namespace ChiaKey.Settings
             AddPane(Ui.Text("關於(&B)"), "app.ico", BuildAboutPane());
 
             LoadSettings();
-            foreach (Control pane in panes) PreferenceLayout.Finish(pane);
             toolbar.ResumeLayout(false);
             content.ResumeLayout(false);
             ShowPane(Math.Max(0, Math.Min(initialPane, panes.Count - 1)));
             ResumeLayout(false);
+            // Resumed before the form has scaled, each nested control asked the form to
+            // scale it again, so margins grew with depth on high-DPI screens.
+            foreach (Control pane in panes) PreferenceLayout.Finish(pane);
             PerformLayout();
             Shown += delegate
             {
@@ -1144,6 +1146,26 @@ namespace ChiaKey.Settings
                 service.RegisterStartup();
                 if (service.Preferences.GetBool("AutoUpdateApp", true) || service.Preferences.GetBool("AutoUpdateLexicon", true))
                     UpdateService.StartBackgroundUpdater(Application.ExecutablePath);
+                return;
+            }
+            if (args.Length > 1 && args[0] == "/update-prompt")
+            {
+                bool first;
+                using (Mutex prompt = new Mutex(true, "Local\\ChiaKey.UpdatePrompt", out first))
+                {
+                    if (!first) return;
+                    Application.EnableVisualStyles();
+                    Application.SetCompatibleTextRenderingDefault(false);
+                    UpdateService service = UpdateService.Default();
+                    // the offer is checked again here; the command line only names the version to ask about
+                    UpdateOffer offer;
+                    try { offer = service.CheckApp(); }
+                    // the helper already counted today's check; a dropped connection must not cost a day
+                    catch (System.Net.WebException) { service.RetryAutomaticCheck(); return; }
+                    catch (Exception) { return; }
+                    if (offer == null || offer.Version != args[1]) return;
+                    Application.Run(new AppUpdatePrompt(service, offer));
+                }
                 return;
             }
             // the input menu opens the phrase editor on its own, as Yahoo's separate PhraseEditor.exe
