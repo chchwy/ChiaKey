@@ -237,6 +237,11 @@ namespace ChiaKey.Settings
             });
             Check(launched && UpdateService.Hash(File.ReadAllBytes(installer)) == appHash,
                 "locked handoff preserves verified bytes without launching a real installer");
+            UpdateService.InstallApp(installer, appHash, delegate(System.Diagnostics.ProcessStartInfo start)
+            {
+                Check(start.Arguments.Contains("/VERYSILENT") && start.Arguments.Contains("/SUPPRESSMSGBOXES"),
+                    "automatic install hides the installer's pages and message boxes");
+            }, true);
             try
             {
                 UpdateService.InstallApp(installer, appHash, delegate { throw new System.ComponentModel.Win32Exception(1223); });
@@ -335,6 +340,31 @@ namespace ChiaKey.Settings
             appFeed = null;
             Check(aheadService.CheckApp(false, false).Version == "1.2.7", "GitHub fallback also reports the actual latest release");
             appFeed = validAppFeed;
+
+            // An automatic pass asks before the installer is downloaded; a skipped version stays quiet.
+            var promptService = new UpdateService(Path.Combine(root, "prompt-state"), executable, new Version("0.1.0"));
+            Func<string, long, byte[]> feed = service.Fetch;
+            promptService.Fetch = delegate(string url, long limit)
+            {
+                if (url.EndsWith(".exe")) throw new Exception("automatic update downloaded before the user agreed");
+                return feed(url, limit);
+            };
+            List<string> prompted = new List<string>();
+            promptService.PromptApp = delegate(UpdateOffer asked) { prompted.Add(asked.Version); };
+            var promptOptions = promptService.Preferences;
+            promptOptions.SetBool("AutoUpdateLexicon", false); promptOptions.Save();
+            promptService.AutomaticPass();
+            Check(prompted.Count == 1 && prompted[0] == "1.2.7", "automatic pass asks about the app update without downloading it");
+            promptService.AutomaticPass();
+            Check(prompted.Count == 1, "the prompt counts as the day's automatic check");
+            promptService.RetryAutomaticCheck();
+            promptService.AutomaticPass();
+            Check(prompted.Count == 2, "a prompt that could not confirm the update is retried on the next tick");
+            promptOptions = promptService.Preferences;
+            promptOptions.SetString("SkippedAppVersion", "1.2.7"); promptOptions.Save();
+            promptService.RetryAutomaticCheck();
+            promptService.AutomaticPass();
+            Check(prompted.Count == 2, "a skipped app version is not asked about again");
 
             // Automatic age gate and daily throttle; never invokes an installer.
             int autoFetches = 0;

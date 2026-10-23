@@ -42,8 +42,9 @@ namespace ChiaKey.Settings
                 if (stream == null) return result;
                 XmlDocument document = new XmlDocument(); document.XmlResolver = null;
                 document.Load(stream);
+                // the file keeps its CRLF line endings; the source strings use \n
                 foreach (XmlNode node in document.DocumentElement.ChildNodes)
-                    result[node["source"].InnerText] = node["en"].InnerText;
+                    result[node["source"].InnerText.Replace("\r\n", "\n")] = node["en"].InnerText.Replace("\r\n", "\n");
             }
             return result;
         }

@@ -1127,6 +1127,7 @@
 		CE00000000000000000000B3 /* ChiaKeyUserPhraseCoordination.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ChiaKeyUserPhraseCoordination.h; path = "Loaders/OSX-IMK/ChiaKeyUserPhraseCoordination.h"; sourceTree = "<group>"; };
 		CE00000000000000000000B5 /* ChiaKeyServiceCoordination.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ChiaKeyServiceCoordination.h; path = "Loaders/OSX-IMK/ChiaKeyServiceCoordination.h"; sourceTree = "<group>"; };
 		CE00000000000000000000D0 /* ChiaKeyDevLog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ChiaKeyDevLog.h; path = "Loaders/OSX-IMK/ChiaKeyDevLog.h"; sourceTree = "<group>"; };
+		CE000000000000000000F001 /* ChiaKeyInputMethodProcessLifecycle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ChiaKeyInputMethodProcessLifecycle.h; path = "Loaders/OSX-IMK/ChiaKeyInputMethodProcessLifecycle.h"; sourceTree = "<group>"; };
 		CE000000000000000000F101 /* ChiaKeySecureInputWatch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ChiaKeySecureInputWatch.h; path = "Loaders/OSX-IMK/ChiaKeySecureInputWatch.h"; sourceTree = "<group>"; };
 		CE000000000000000000F102 /* CVSecureInputWarningController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CVSecureInputWarningController.h; path = "Loaders/OSX-IMK/CVSecureInputWarningController.h"; sourceTree = "<group>"; };
 		CE000000000000000000F103 /* CVSecureInputWarningController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = CVSecureInputWarningController.mm; path = "Loaders/OSX-IMK/CVSecureInputWarningController.mm"; sourceTree = "<group>"; };
@@ -2253,6 +2254,7 @@
 				CE00000000000000000000B3 /* ChiaKeyUserPhraseCoordination.h */,
 				CE00000000000000000000B5 /* ChiaKeyServiceCoordination.h */,
 				CE00000000000000000000D0 /* ChiaKeyDevLog.h */,
+				CE000000000000000000F001 /* ChiaKeyInputMethodProcessLifecycle.h */,
 				CE000000000000000000F101 /* ChiaKeySecureInputWatch.h */,
 				CE000000000000000000F102 /* CVSecureInputWarningController.h */,
 				CE000000000000000000F103 /* CVSecureInputWarningController.mm */,
