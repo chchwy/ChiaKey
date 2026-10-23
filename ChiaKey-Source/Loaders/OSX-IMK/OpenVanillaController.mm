@@ -1079,6 +1079,10 @@ static NSString *OVCTextForTemporaryEnglishMode(NSEvent *event) {
           // Preserve Shift in the modifier mask and normalize the key code.
           remappedNSEventCode = (UniChar)OVKeyCode::Tab;
           break;
+        case NSEnterCharacter:
+          // Keypad Enter arrives as 0x03 instead of Return.
+          remappedNSEventCode = (UniChar)OVKeyCode::Return;
+          break;
         case NSUpArrowFunctionKey:
           remappedNSEventCode = (UniChar)OVKeyCode::Up;
           break;
