@@ -27,5 +27,7 @@ jobs:
           bash Scripts/test-legacy-macos-release-selection.sh
       - name: Check input method process lifecycle policy
         run: Scripts/test-input-method-process-lifecycle.sh
+      - name: Check secure input watch policy
+        run: Scripts/test-secure-input-watch.sh
       - name: Check new and legacy lexicon metadata and button layout
         run: Scripts/test-symbol-metadata.sh
