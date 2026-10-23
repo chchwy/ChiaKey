@@ -31,6 +31,7 @@ file for terms.
   IBOutlet id _applyCapsLockDelayOverrideCheckBox;
   IBOutlet id _shiftTogglesTemporaryEnglishCheckBox;
   IBOutlet id _resetTemporaryEnglishOnApplicationSwitchCheckBox;
+  IBOutlet id _expandableCandidatePanelCheckBox;
 
   NSMutableDictionary *_takaoDictionary;
   NSString *_preferenceFilePath;

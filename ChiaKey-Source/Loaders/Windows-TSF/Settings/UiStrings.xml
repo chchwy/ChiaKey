@@ -127,6 +127,10 @@ Total: {2:N0}</en>
     <en>Use Pattern.</en>
   </string>
   <string>
+    <source>按方向鍵右展開多行候選字</source>
+    <en>Expand candidates into rows with the Right arrow key</en>
+  </string>
+  <string>
     <source>使用自訂提示聲：</source>
     <en>Other sound clip:</en>
   </string>

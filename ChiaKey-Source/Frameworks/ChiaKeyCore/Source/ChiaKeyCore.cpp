@@ -560,6 +560,8 @@ class Engine::Impl {
   bool handleKey(const KeyEvent& event) {
     std::lock_guard<std::recursive_mutex> lock(runtime->impl_->mutex);
     service()->resetState();
+    context->candidateService()->setCandidatePanelExpansionEnabled(
+        runtime->impl_->config.expandableCandidatePanel);
     OVKey key = MakeKey(event);
     return context->handleKeyEvent(&key);
   }
@@ -632,6 +634,9 @@ class Engine::Impl {
         panel->currentHightlightIndexInCandidateList();
     state.candidateState.candidates =
         CandidateListToVector(panel->candidateList());
+    state.candidateState.expanded = panel->isExpanded();
+    state.candidateState.expandedFirstPage = panel->expandedFirstPage();
+    state.candidateState.expandedPageCount = panel->expandedPageCount();
     if (state.candidateState.visible) {
       const std::size_t onPage = panel->currentPageCandidateCount();
       for (std::size_t index = 0; index < onPage; ++index) {

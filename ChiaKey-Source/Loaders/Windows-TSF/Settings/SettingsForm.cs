@@ -204,6 +204,7 @@ namespace ChiaKey.Settings
         private ComboBox backgroundColor;
         private ComboBox textColor;
         private CheckBox backgroundPattern;
+        private CheckBox expandableCandidates;
         private CheckBox beep;
         private CheckBox keyboardFollowsCursor;
         private CheckBox wordCountEnabled;
@@ -817,6 +818,7 @@ namespace ChiaKey.Settings
             EnableCustomColor(backgroundColor);
             EnableCustomColor(textColor);
             backgroundPattern = Check(candidate, "使用背景花紋");
+            expandableCandidates = Check(candidate, "按方向鍵右展開多行候選字");
             GroupBox extra = Group(pane, "額外設定");
             beep = Check(extra, "錯誤時發出聲響");
             defaultSound = new RadioButton { Text = Ui.Text("使用系統預設提示聲"), AutoSize = true };
@@ -1014,6 +1016,7 @@ namespace ChiaKey.Settings
             Select(backgroundColor, BackgroundColors, frontend.GetString("BackgroundColor", "Black"));
             Select(textColor, TextColors, frontend.GetString("TextColor", "White"));
             backgroundPattern.Checked = frontend.GetBool("BackgroundPattern", false);
+            expandableCandidates.Checked = frontend.GetBool("ExpandableCandidatePanel", true);
             beep.Checked = frontend.GetBool("ShouldPlaySoundOnTypingError", true);
             string sound = frontend.GetString("SoundFilename", "Default");
             defaultSound.Checked = sound == "Default" || sound.Length == 0;
@@ -1072,6 +1075,7 @@ namespace ChiaKey.Settings
             frontend.SetString("BackgroundColor", Selected(backgroundColor));
             frontend.SetString("TextColor", Selected(textColor));
             frontend.SetBool("BackgroundPattern", backgroundPattern.Checked);
+            frontend.SetBool("ExpandableCandidatePanel", expandableCandidates.Checked);
             frontend.SetBool("ShouldPlaySoundOnTypingError", beep.Checked);
 
             smartMandarin.SetString("KeyboardLayout", Selected(smartLayout));

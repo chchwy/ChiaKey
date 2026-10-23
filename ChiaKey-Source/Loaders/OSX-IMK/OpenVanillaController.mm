@@ -326,6 +326,8 @@ static NSString *OVCTextForTemporaryEnglishMode(NSEvent *event) {
   } else {
     _context->candidateService()->setOneDimensionalPanelVertical(true);
   }
+  _context->candidateService()->setCandidatePanelExpansionEnabled(
+      kvm.stringValueForKey("ExpandableCandidatePanel") != "false");
 
   if (kvm.hasKey("CandidateTextFontHeight")) {
     float fontHeight =

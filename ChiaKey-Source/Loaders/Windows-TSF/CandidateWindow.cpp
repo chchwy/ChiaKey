@@ -35,6 +35,8 @@ constexpr int kArrowSize = 8;
 constexpr int kIndicatorRightMargin = 5;
 constexpr int kMessagePadding = 8;
 constexpr int kAnchorGap = 2;
+// room at the right edge of an expanded list for the more-pages arrow
+constexpr int kMorePagesWidth = 10;
 
 std::once_flag g_windowClassOnce;
 bool g_windowClassRegistered = false;
@@ -172,6 +174,7 @@ SIZE CandidateWindow::measure() {
     HDC dc = GetDC(window_);
     SIZE size{};
     candidateRects_.clear();
+    rectIndexes_.clear();
     if (!message_.empty()) {
         size.cx = TextWidth(dc, candidateFont_, message_) + scale(kMessagePadding) * 2;
         size.cy = rowHeight_ + scale(kMessagePadding);
@@ -180,12 +183,35 @@ SIZE CandidateWindow::measure() {
         const int top = scale(22);
         for (const auto& candidate : candidates_) {
             const int width = TextWidth(dc, candidateFont_, candidate.text) + scale(20);
+            rectIndexes_.push_back(firstIndex_ + candidateRects_.size());
             candidateRects_.push_back({left, top, left + width, top + rowHeight_});
             left += width;
         }
         size.cx = std::max(left + scale(kMessagePadding),
             TextWidth(dc, hintFont_, L"TAB選取，shift+TAB切換") + scale(16));
         size.cy = top + rowHeight_ + scale(kMessagePadding);
+    } else if (expanded_) {
+        // every column fits its own text
+        const size_t first = expandedFirstPage_ * candidatesPerPage_;
+        const size_t last = std::min(allCandidates_.size(),
+                                     first + expandedPageCount_ * candidatesPerPage_);
+        const int top = scale(kHeaderHeight);
+        int left = 0;
+        for (size_t columnStart = first; columnStart < last; columnStart += candidatesPerPage_) {
+            const size_t columnEnd = std::min(last, columnStart + candidatesPerPage_);
+            int width = 0;
+            for (size_t index = columnStart; index < columnEnd; ++index)
+                width = std::max(width, TextWidth(dc, candidateFont_, allCandidates_[index]) +
+                                            scale(kTextLeft) + scale(6));
+            for (size_t index = columnStart; index < columnEnd; ++index) {
+                const int y = top + static_cast<int>(index - columnStart) * rowHeight_;
+                rectIndexes_.push_back(index);
+                candidateRects_.push_back({left, y, left + width, y + rowHeight_});
+            }
+            left += width;
+        }
+        size.cx = left + scale(kBorderWidth) + (hasMorePages() ? scale(kMorePagesWidth) : 0);
+        size.cy = scale(kHeaderHeight) + rowHeight_ * static_cast<int>(candidatesPerPage_ + 1);
     } else {
         int width = scale(kMinimumWidth);
         for (const EngineCandidate& candidate : candidates_) {
@@ -239,6 +265,11 @@ void CandidateWindow::show(HWND owner, const RECT& textRect, const EngineResult&
     candidatesPerPage_ = std::max(result.candidatesPerPage, candidates_.size());
     page_ = result.candidatePage;
     pageCount_ = result.candidatePageCount;
+    firstIndex_ = page_ ? (page_ - 1) * result.candidatesPerPage : 0;
+    expanded_ = result.candidatesExpanded && !horizontal_ && candidatesPerPage_ > 0;
+    expandedFirstPage_ = result.expandedFirstPage;
+    expandedPageCount_ = result.expandedPageCount;
+    allCandidates_ = expanded_ ? result.allCandidates : std::vector<std::wstring>();
     palette_ = PaletteFor(CurrentFrontendSettings());
     message_.clear();
     ensureWindow(owner);
@@ -251,6 +282,7 @@ void CandidateWindow::show(HWND owner, const RECT& textRect, const EngineResult&
 
 void CandidateWindow::showMessage(HWND owner, const RECT& textRect, const std::wstring& message) {
     horizontal_ = false;
+    expanded_ = false;
     candidates_.clear();
     message_ = message;
     palette_ = PaletteFor(CurrentFrontendSettings());
@@ -268,8 +300,10 @@ void CandidateWindow::hide() {
         NotifyWinEvent(EVENT_OBJECT_IME_HIDE, window_, OBJID_CLIENT, CHILDID_SELF);
     }
     candidates_.clear();
+    allCandidates_.clear();
     message_.clear();
     candidateRects_.clear();
+    rectIndexes_.clear();
     select_ = {};
 }
 
@@ -297,7 +331,7 @@ LRESULT CandidateWindow::handleMessage(UINT message, WPARAM wparam, LPARAM lpara
             for (size_t index = 0; index < candidateRects_.size(); ++index) {
                 if (PtInRect(&candidateRects_[index], point) && select_) {
                     auto callback = select_;
-                    callback(index);
+                    callback(rectIndexes_[index]);
                     break;
                 }
             }
@@ -345,10 +379,12 @@ void CandidateWindow::paint() {
             FillSolid(dc, line, palette_.pattern);
         }
     }
-    if (message_.empty()) {
-        paintCandidates(dc, client);
-    } else {
+    if (!message_.empty()) {
         paintMessage(dc, client);
+    } else if (expanded_) {
+        paintExpanded(dc, client);
+    } else {
+        paintCandidates(dc, client);
     }
     HBRUSH border = CreateSolidBrush(kBorderColor);
     FrameRect(dc, &client, border);
@@ -382,8 +418,6 @@ void CandidateWindow::paintCandidates(HDC dc, const RECT& client) {
         return;
     }
     const int top = scale(kHeaderHeight);
-    const int keySize = scale(kKeySize);
-    const int notch = std::max(1, scale(1));
 
     for (size_t index = 0; index < candidates_.size(); ++index) {
         const int rowTop = top + static_cast<int>(index) * rowHeight_;
@@ -394,21 +428,7 @@ void CandidateWindow::paintCandidates(HDC dc, const RECT& client) {
             FillGradient(dc, bar, palette_.highlight, palette_.highlightEnd);
         }
 
-        // a square with its corners notched, as Utilities.DrawBezelPath draws it
-        const int keyLeft = scale(kKeyLeft);
-        const int keyTop = rowTop + (rowHeight_ - keySize) / 2;
-        const POINT bezel[] = {
-            {keyLeft + notch, keyTop},           {keyLeft + keySize - notch, keyTop},
-            {keyLeft + keySize, keyTop + notch}, {keyLeft + keySize, keyTop + keySize - notch},
-            {keyLeft + keySize - notch, keyTop + keySize},
-            {keyLeft + notch, keyTop + keySize}, {keyLeft, keyTop + keySize - notch},
-            {keyLeft, keyTop + notch},
-        };
-        FillPolygon(dc, bezel, static_cast<int>(std::size(bezel)),
-                    highlighted ? kKeyHighlightBackgroundColor : kKeyBackgroundColor);
-        const RECT keyRect{keyLeft, keyTop, keyLeft + keySize + 1, keyTop + keySize + 1};
-        DrawTextIn(dc, keyFont_, kKeyForegroundColor, candidates_[index].selectionKey, keyRect,
-                   DT_CENTER);
+        paintKey(dc, scale(kKeyLeft), rowTop, candidates_[index].selectionKey, highlighted);
 
         const RECT textRect{scale(kTextLeft), rowTop, client.right, rowTop + rowHeight_};
         DrawTextIn(dc, candidateFont_,
@@ -416,7 +436,70 @@ void CandidateWindow::paintCandidates(HDC dc, const RECT& client) {
                    candidates_[index].text, textRect, DT_LEFT);
     }
 
-    const int footerTop = top + static_cast<int>(candidatesPerPage_) * rowHeight_;
+    paintIndicator(dc, client, top + static_cast<int>(candidatesPerPage_) * rowHeight_,
+                   scale(kArrowLeft));
+}
+
+void CandidateWindow::paintKey(HDC dc, int left, int rowTop, const std::wstring& key,
+                               bool highlighted) {
+    // a square with its corners notched, as Utilities.DrawBezelPath draws it
+    const int keySize = scale(kKeySize);
+    const int notch = std::max(1, scale(1));
+    const int keyTop = rowTop + (rowHeight_ - keySize) / 2;
+    const POINT bezel[] = {
+        {left + notch, keyTop},           {left + keySize - notch, keyTop},
+        {left + keySize, keyTop + notch}, {left + keySize, keyTop + keySize - notch},
+        {left + keySize - notch, keyTop + keySize},
+        {left + notch, keyTop + keySize}, {left, keyTop + keySize - notch},
+        {left, keyTop + notch},
+    };
+    FillPolygon(dc, bezel, static_cast<int>(std::size(bezel)),
+                highlighted ? kKeyHighlightBackgroundColor : kKeyBackgroundColor);
+    const RECT keyRect{left, keyTop, left + keySize + 1, keyTop + keySize + 1};
+    DrawTextIn(dc, keyFont_, kKeyForegroundColor, key, keyRect, DT_CENTER);
+}
+
+void CandidateWindow::paintExpanded(HDC dc, const RECT& client) {
+    const size_t currentColumn = page_ - 1 - expandedFirstPage_;
+    int arrowLeft = scale(kArrowLeft);
+    for (size_t rect = 0; rect < candidateRects_.size(); ++rect) {
+        const RECT& cell = candidateRects_[rect];
+        const size_t column = rect / candidatesPerPage_;
+        const size_t row = rect % candidatesPerPage_;
+        const bool active = column == currentColumn;
+        // the page arrows sit over the key column of the current page
+        if (active && row == 0) arrowLeft = cell.left + scale(kArrowLeft);
+        const bool highlighted = active && row == highlightedIndex_;
+        if (highlighted) {
+            const RECT bar{cell.left + scale(kBorderWidth + 3), cell.top,
+                           cell.right - scale(2), cell.bottom};
+            FillGradient(dc, bar, palette_.highlight, palette_.highlightEnd);
+        }
+        // only the current column answers to the selection keys
+        if (active && row < candidates_.size())
+            paintKey(dc, cell.left + scale(kKeyLeft), cell.top, candidates_[row].selectionKey,
+                     highlighted);
+        const RECT textRect{cell.left + scale(kTextLeft), cell.top, cell.right, cell.bottom};
+        DrawTextIn(dc, candidateFont_,
+                   highlighted ? kHighlightForegroundColor
+                               : active ? palette_.foreground : kIndicatorColor,
+                   allCandidates_[rectIndexes_[rect]], textRect, DT_LEFT | DT_END_ELLIPSIS);
+    }
+    if (hasMorePages() && !candidateRects_.empty()) {
+        const int size = scale(kArrowSize);
+        const int left = candidateRects_.back().right + scale(2);
+        const int middle = scale(kHeaderHeight) +
+                           static_cast<int>(candidatesPerPage_) * rowHeight_ / 2;
+        const POINT more[] = {{left, middle - size / 2}, {left + size / 2, middle},
+                              {left, middle + size / 2}};
+        FillPolygon(dc, more, 3, kIndicatorColor);
+    }
+    paintIndicator(dc, client,
+                   scale(kHeaderHeight) + static_cast<int>(candidatesPerPage_) * rowHeight_,
+                   arrowLeft);
+}
+
+void CandidateWindow::paintIndicator(HDC dc, const RECT& client, int footerTop, int arrowLeft) {
     const std::wstring indicator =
         L"(" + std::to_wstring(page_) + L"/" + std::to_wstring(pageCount_) + L")";
     const RECT indicatorRect{0, footerTop, client.right - scale(kIndicatorRightMargin),
@@ -424,7 +507,7 @@ void CandidateWindow::paintCandidates(HDC dc, const RECT& client) {
     DrawTextIn(dc, indicatorFont_, kIndicatorColor, indicator, indicatorRect, DT_RIGHT);
 
     if (pageCount_ > 1) {
-        const int left = scale(kArrowLeft);
+        const int left = arrowLeft;
         const int size = scale(kArrowSize);
         const int upTop = scale(kArrowTop);
         const POINT up[] = {{left, upTop + size}, {left + size, upTop + size},

@@ -120,6 +120,23 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
   size_t m_chosenCandidateIndex;
   string m_chosenCandidateString;
 
+  // Expanded mode shows several pages at once, one page per column.
+  bool m_expansionEnabled;
+  bool m_expanded;
+  size_t m_expandedFirstPage;
+  // the leftmost page reached since expanding; Left collapses only there
+  size_t m_expandedAnchorPage;
+  // paging backwards keeps the list collapsed until it is back on page one
+  bool m_expansionSuspended;
+  OVKeyVector m_expandKeys;
+  OVKey m_upKey;
+  OVKey m_downKey;
+  OVKey m_leftKey;
+  OVKey m_rightKey;
+  OVKey m_pageUpKey;
+  OVKey m_pageDownKey;
+  OVKey m_spaceKey;
+
  protected:
   bool isKeyInVector(const OVKey& key, OVKeyVector& keyVector) {
     OVKeyVector::iterator it = keyVector.begin();
@@ -149,6 +166,10 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
     m_candidateList.clear();
     m_currentPage = 0;
     m_inControl = false;
+    m_expanded = false;
+    m_expandedFirstPage = 0;
+    m_expandedAnchorPage = 0;
+    m_expansionSuspended = false;
     m_chosenCandidateString = "";
     m_chosenCandidateIndex = 0;
     m_currentHighlightedCandidateIndex = 0;
@@ -173,8 +194,134 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
     return count > 0 ? count - 1 : 0;
   }
 
+  static size_t expandedColumnLimit() { return 6; }
+
+  bool expansionEnabled() const { return m_expansionEnabled; }
+
+  void setExpansionEnabled(bool enabled) {
+    m_expansionEnabled = enabled;
+    if (!enabled) m_expanded = false;
+  }
+
+  bool isExpanded() const { return m_expanded; }
+
+  size_t expandedFirstPage() const { return m_expandedFirstPage; }
+
+  size_t expandedPageCount() const {
+    if (!m_expanded || m_expandedFirstPage >= pageCount()) return 0;
+    size_t columns = pageCount() - m_expandedFirstPage;
+    return columns < expandedColumnLimit() ? columns : expandedColumnLimit();
+  }
+
+  // Call after paging from outside the key handler, e.g. the page buttons.
+  void syncExpandedColumnsToCurrentPage() {
+    if (!m_expanded) return;
+    if (m_currentHighlightedCandidateIndex > lastCurrentPageCandidateIndex())
+      m_currentHighlightedCandidateIndex = lastCurrentPageCandidateIndex();
+    if (m_currentPage < m_expandedAnchorPage) m_expandedAnchorPage = m_currentPage;
+    scrollExpandedColumnsToCurrentPage();
+  }
+
+ protected:
+  void scrollExpandedColumnsToCurrentPage() {
+    if (m_currentPage < m_expandedFirstPage)
+      m_expandedFirstPage = m_currentPage;
+    else if (m_currentPage >= m_expandedFirstPage + expandedColumnLimit())
+      m_expandedFirstPage = m_currentPage - expandedColumnLimit() + 1;
+  }
+
+  // Moves to the same row of another page, clamped to that page's length.
+  void moveToPage(size_t page) {
+    m_currentPage = page;
+    if (m_currentHighlightedCandidateIndex > lastCurrentPageCandidateIndex())
+      m_currentHighlightedCandidateIndex = lastCurrentPageCandidateIndex();
+  }
+
+  PVCandidateState::State handleExpandedKeyEvent(const OVKey& key) {
+    // e.g. Generic tables can make Space the first selection key
+    if (isKeyInVector(key, m_candidateKeys) ||
+        isKeyInVector(key, m_chooseHighlightedCandidateKeys))
+      return PVCandidateState::Ignored;
+
+    size_t lastPageIndex = lastPage();
+    size_t oldPage = m_currentPage;
+    size_t oldHighlight = m_currentHighlightedCandidateIndex;
+
+    if (key == m_upKey || key == m_downKey) {
+      if (key == m_downKey) {
+        if (m_currentHighlightedCandidateIndex <
+            lastCurrentPageCandidateIndex()) {
+          m_currentHighlightedCandidateIndex++;
+        } else if (m_currentPage < lastPageIndex || m_allowsPageWrapping) {
+          m_currentPage = m_currentPage < lastPageIndex ? m_currentPage + 1 : 0;
+          m_currentHighlightedCandidateIndex = 0;
+        }
+      } else {
+        if (m_currentHighlightedCandidateIndex > 0) {
+          m_currentHighlightedCandidateIndex--;
+        } else if (m_currentPage > 0 || m_allowsPageWrapping) {
+          m_currentPage = m_currentPage > 0 ? m_currentPage - 1 : lastPageIndex;
+          m_currentHighlightedCandidateIndex = lastCurrentPageCandidateIndex();
+        }
+      }
+    } else if (key == m_leftKey) {
+      if (m_currentPage == m_expandedAnchorPage) {
+        m_expanded = false;
+        // Right keeps paging until back on the first page, as after Left while collapsed
+        if (m_currentPage != 0) m_expansionSuspended = true;
+        return PVCandidateState::UpdatePage;
+      }
+      moveToPage(m_currentPage - 1);
+    } else if (key == m_rightKey) {
+      if (m_currentPage < lastPageIndex)
+        moveToPage(m_currentPage + 1);
+      else if (m_allowsPageWrapping)
+        moveToPage(0);
+    } else if (key == m_pageDownKey || key == m_spaceKey) {
+      if (m_currentPage < lastPageIndex) {
+        size_t target = m_currentPage + expandedColumnLimit();
+        moveToPage(target < lastPageIndex ? target : lastPageIndex);
+      } else if (m_allowsPageWrapping) {
+        moveToPage(0);
+      }
+    } else if (key == m_pageUpKey) {
+      if (m_currentPage > 0) {
+        moveToPage(m_currentPage > expandedColumnLimit()
+                       ? m_currentPage - expandedColumnLimit()
+                       : 0);
+      } else if (m_allowsPageWrapping) {
+        moveToPage(lastPageIndex);
+      }
+    } else {
+      return PVCandidateState::Ignored;
+    }
+
+    syncExpandedColumnsToCurrentPage();
+    if (m_currentPage != oldPage) return PVCandidateState::UpdatePage;
+    if (m_currentHighlightedCandidateIndex != oldHighlight)
+      return PVCandidateState::UpdateCandidateHighlight;
+    return PVCandidateState::ReachedPageBoundary;
+  }
+
+ public:
   PVCandidateState::State handleKeyEvent(const OVKey& key,
                                          OVLoaderService* loaderService) {
+    // back on page one ends the suspension, whichever key got there
+    if (m_currentPage == 0) m_expansionSuspended = false;
+    if (m_expanded) {
+      PVCandidateState::State state = handleExpandedKeyEvent(key);
+      if (state != PVCandidateState::Ignored) return state;
+    } else if (m_expansionEnabled && pageCount() > 1 &&
+               isKeyInVector(key, m_expandKeys) &&
+               !isKeyInVector(key, m_candidateKeys) &&
+               !isKeyInVector(key, m_chooseHighlightedCandidateKeys) &&
+               !m_expansionSuspended) {
+      m_expanded = true;
+      m_expandedFirstPage = m_currentPage;
+      m_expandedAnchorPage = m_currentPage;
+      return PVCandidateState::UpdatePage;
+    }
+
     if (isKeyInVector(key, m_cancelKeys)) {
       reset();
       return PVCandidateState::Canceled;
@@ -246,6 +393,7 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
             // the new page
             m_currentHighlightedCandidateIndex =
                 lastCurrentPageCandidateIndex();
+            m_expansionSuspended = true;
           } else {
             // failed--page wrapping is off or list is empty--now we rollback
             // (actually do nothing)
@@ -284,6 +432,7 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
       } else {
         goToPreviousPage();
         m_currentHighlightedCandidateIndex = 0;
+        if (m_currentPage != oldPageIndex) m_expansionSuspended = true;
       }
 
       if (m_currentPage != oldPageIndex) return PVCandidateState::UpdatePage;
@@ -304,7 +453,12 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
         m_inControl(false),
         m_currentHighlightedCandidateIndex(m_candidatesPerPage),
         m_chosenCandidateIndex(0),
-        m_prompt("") {}
+        m_prompt(""),
+        m_expansionEnabled(false),
+        m_expanded(false),
+        m_expandedFirstPage(0),
+        m_expandedAnchorPage(0),
+        m_expansionSuspended(false) {}
 
   virtual void hide() { m_visible = false; }
 
@@ -322,6 +476,8 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
       // yield control to candidate handler, so we start using hightlight
       m_currentHighlightedCandidateIndex = 0;
       m_inControl = true;
+      m_expanded = false;
+      m_expansionSuspended = false;
       return true;
     }
 
@@ -331,6 +487,7 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
   virtual void cancelEventHandler() {
     m_currentHighlightedCandidateIndex = m_candidatesPerPage;
     m_inControl = false;
+    m_expanded = false;
   }
 
   virtual bool isOneDimensionalPanel() { return true; }
@@ -524,6 +681,13 @@ class PVOneDimensionalCandidatePanel : public OVOneDimensionalCandidatePanel {
   }
 
   virtual void populateAndSetDefaultKeys(OVLoaderService* loaderService) {
+    m_upKey = loaderService->makeOVKey(OVKeyCode::Up);
+    m_downKey = loaderService->makeOVKey(OVKeyCode::Down);
+    m_leftKey = loaderService->makeOVKey(OVKeyCode::Left);
+    m_rightKey = loaderService->makeOVKey(OVKeyCode::Right);
+    m_pageUpKey = loaderService->makeOVKey(OVKeyCode::PageUp);
+    m_pageDownKey = loaderService->makeOVKey(OVKeyCode::PageDown);
+    m_spaceKey = loaderService->makeOVKey(OVKeyCode::Space);
     populateDefaultCandidateKeys(loaderService);
     populateDefaultCancelKeys(loaderService);
     populateDefaultChooseHighlightedCandidateKeys(loaderService);
@@ -569,6 +733,7 @@ class PVVerticalCandidatePanel : public PVOneDimensionalCandidatePanel {
     m_defaultNextPageKeys.push_back(loaderService->makeOVKey(OVKeyCode::Right));
     m_defaultPreviousPageKeys.push_back(
         loaderService->makeOVKey(OVKeyCode::Left));
+    m_expandKeys.push_back(loaderService->makeOVKey(OVKeyCode::Right));
     setToDefaultKeys();
   }
 
@@ -691,6 +856,10 @@ class PVCandidateService : public OVCandidateService {
  public:
   virtual void setOneDimensionalPanelVertical(bool vertical = true) {
     m_oneDimensionalPanelIsVertical = vertical;
+  }
+
+  virtual void setCandidatePanelExpansionEnabled(bool enabled) {
+    m_verticalCandidatePanel.setExpansionEnabled(enabled);
   }
 
  protected:
