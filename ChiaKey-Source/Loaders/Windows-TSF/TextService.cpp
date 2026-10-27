@@ -976,7 +976,8 @@ KeyEvent TextService::translateKey(WPARAM wparam, LPARAM lparam) const {
     ReloadActivity activity(reloadActivity_);
     KeyEvent event;
     event.virtualKey = static_cast<UINT>(wparam);
-    event.shift = IsKeyDown(VK_SHIFT);
+    event.shift = ShiftHeld(IsKeyDown(VK_SHIFT), (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0,
+                            shiftReleaseSeen_);
     event.control = IsKeyDown(VK_CONTROL);
     event.alt = IsKeyDown(VK_MENU);
     event.capsLock = (GetKeyState(VK_CAPITAL) & 1) != 0;
@@ -984,6 +985,10 @@ KeyEvent TextService::translateKey(WPARAM wparam, LPARAM lparam) const {
 
     BYTE keyboardState[256]{};
     if (!GetKeyboardState(keyboardState)) return event;
+    // the text must agree with event.shift, or a stale Shift still types an uppercase letter
+    if (!event.shift) {
+        for (int key : {VK_SHIFT, VK_LSHIFT, VK_RSHIFT}) keyboardState[key] &= 0x7f;
+    }
     wchar_t characters[8]{};
     const UINT scanCode = static_cast<UINT>((lparam >> 16) & 0xff);
     // flag 4 keeps ToUnicodeEx from changing the dead-key state of the host
@@ -1101,6 +1106,7 @@ STDMETHODIMP TextService::OnTestKeyDown(ITfContext* context, WPARAM wparam, LPAR
     reloadNotBefore_ = GetTickCount64() + 500;
     if (!eaten) return E_INVALIDARG;
     *eaten = FALSE;
+    if (IsShiftKey(static_cast<UINT>(wparam))) shiftReleaseSeen_ = false;
     if (!keyboardAvailable(context)) {
         shiftTogglePending_ = false;
         shiftPressedAt_ = 0;
@@ -1132,6 +1138,7 @@ STDMETHODIMP TextService::OnTestKeyUp(ITfContext* context, WPARAM wparam, LPARAM
     ReloadActivity activity(reloadActivity_);
     // TSF does not call OnKeyUp for unclaimed releases, but still tests them.
     finishKeyPress(static_cast<UINT>(wparam));
+    if (IsShiftKey(static_cast<UINT>(wparam))) shiftReleaseSeen_ = true;
     ReloadKeyTest tested(reloadKeyUpPending_, eaten);
     reloadNotBefore_ = GetTickCount64() + 500;
     if (!eaten) return E_INVALIDARG;
@@ -1162,6 +1169,8 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* context, WPARAM wparam, LPARAM l
     reloadNotBefore_ = GetTickCount64() + 500;
     if (!context || !eaten) return E_INVALIDARG;
     *eaten = FALSE;
+    // a host may call this without testing the key first
+    if (IsShiftKey(static_cast<UINT>(wparam))) shiftReleaseSeen_ = false;
     if (!keyboardAvailable(context)) return S_OK;
     KeyEvent event = translateKey(wparam, lparam);
     pressedVirtualKeys_.insert(static_cast<UINT>(wparam));
@@ -1249,6 +1258,7 @@ HRESULT TextService::runKeySession(ITfContext* context, KeyEvent event, BOOL* ea
 STDMETHODIMP TextService::OnKeyUp(ITfContext* context, WPARAM wparam, LPARAM lparam, BOOL* eaten) {
     ReloadActivity activity(reloadActivity_);
     finishKeyPress(static_cast<UINT>(wparam));
+    if (IsShiftKey(static_cast<UINT>(wparam))) shiftReleaseSeen_ = true;
     reloadKeyUpPending_ = false;
     reloadNotBefore_ = GetTickCount64() + 500;
     if (!eaten) return E_INVALIDARG;
