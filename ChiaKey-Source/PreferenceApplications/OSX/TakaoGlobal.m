@@ -390,9 +390,10 @@ file for terms.
   else
     [_takaoDictionary setValue:@"false" forKey:@"ShouldCheckUpdateOnLaunch"];
 
-  if ([_applyCapsLockDelayOverrideCheckBox intValue])
+  if ([_applyCapsLockDelayOverrideCheckBox intValue]) {
     [_takaoDictionary setValue:@"true" forKey:@"ApplyCapsLockDelayOverride"];
-  else {
+    [CVCapsLockDelayOverride applyIfEnabled:YES];
+  } else {
     [_takaoDictionary setValue:@"false" forKey:@"ApplyCapsLockDelayOverride"];
     [CVCapsLockDelayOverride reset];
   }
