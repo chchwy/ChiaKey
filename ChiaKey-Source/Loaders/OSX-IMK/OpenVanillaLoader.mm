@@ -806,7 +806,7 @@ using namespace OpenVanilla;
 
   HealDefaultPrimaryInputMethodIfNeeded(_loader);
   bool applyCapsLockDelayOverride =
-      kvm.stringValueForKey("ApplyCapsLockDelayOverride") != "false";
+      kvm.stringValueForKey("ApplyCapsLockDelayOverride") == "true";
 
   NSLog(@"ChiaKey: boot: loader core in %.2fs, ready in %.2fs total",
         CFAbsoluteTimeGetCurrent() - stageStart,

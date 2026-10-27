@@ -346,7 +346,7 @@ file for terms.
                       forKey:@"OneDimensionalCandidatePanelStyle"];
   [_takaoDictionary setValue:@"true"
                       forKey:@"ToggleInputMethodWithControlBackslash"];
-  [_takaoDictionary setValue:@"true" forKey:@"ApplyCapsLockDelayOverride"];
+  [_takaoDictionary setValue:@"false" forKey:@"ApplyCapsLockDelayOverride"];
   [_takaoDictionary setValue:@"true" forKey:@"ShiftTogglesTemporaryEnglish"];
   [_takaoDictionary setValue:@"true"
                       forKey:@"ResetTemporaryEnglishOnApplicationSwitch"];
