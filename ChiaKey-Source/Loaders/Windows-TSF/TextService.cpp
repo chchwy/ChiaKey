@@ -1168,6 +1168,8 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* context, WPARAM wparam, LPARAM l
     reloadNotBefore_ = GetTickCount64() + 500;
     if (!context || !eaten) return E_INVALIDARG;
     *eaten = FALSE;
+    // a host may call this without testing the key first
+    if (IsShiftKey(static_cast<UINT>(wparam))) shiftReleaseSeen_ = false;
     if (!keyboardAvailable(context)) return S_OK;
     KeyEvent event = translateKey(wparam, lparam);
     pressedVirtualKeys_.insert(static_cast<UINT>(wparam));
@@ -1255,6 +1257,7 @@ HRESULT TextService::runKeySession(ITfContext* context, KeyEvent event, BOOL* ea
 STDMETHODIMP TextService::OnKeyUp(ITfContext* context, WPARAM wparam, LPARAM lparam, BOOL* eaten) {
     ReloadActivity activity(reloadActivity_);
     finishKeyPress(static_cast<UINT>(wparam));
+    if (IsShiftKey(static_cast<UINT>(wparam))) shiftReleaseSeen_ = true;
     reloadKeyUpPending_ = false;
     reloadNotBefore_ = GetTickCount64() + 500;
     if (!eaten) return E_INVALIDARG;
