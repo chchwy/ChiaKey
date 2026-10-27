@@ -553,7 +553,7 @@
                 <button imageHugsTitle="YES" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="capsLockDelayOverrideCheckBox">
                     <rect key="frame" x="136" y="60" width="300" height="18"/>
                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                    <buttonCell key="cell" type="check" title="移除 Caps Lock 延迟" bezelStyle="regularSquare" imagePosition="leading" alignment="left" state="on" inset="2" id="capsLockDelayOverrideCheckBoxCell">
+                    <buttonCell key="cell" type="check" title="移除 Caps Lock 延迟" bezelStyle="regularSquare" imagePosition="leading" alignment="left" state="off" inset="2" id="capsLockDelayOverrideCheckBoxCell">
                         <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                         <font key="font" metaFont="system"/>
                     </buttonCell>
