@@ -96,6 +96,7 @@ struct FrontendSettings {
     bool simplifiedOutput = false;
     // Right arrow expands a vertical candidate list into columns of pages
     bool expandableCandidatePanel = true;
+    int candidateFontSize = 12;  // points
     // input method identifiers left out of the menus
     std::vector<std::string> suppressedInputMethods;
 };

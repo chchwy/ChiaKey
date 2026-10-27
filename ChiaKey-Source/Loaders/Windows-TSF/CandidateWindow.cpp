@@ -153,10 +153,11 @@ void CandidateWindow::releaseFonts() {
 }
 
 void CandidateWindow::updateFonts(UINT dpi) {
-    if (candidateFont_ && dpi_ == dpi) return;
+    if (candidateFont_ && dpi_ == dpi && fontPoints_ == candidateFontSize_) return;
     releaseFonts();
     dpi_ = dpi;
-    candidateFont_ = MakeFont(L"Microsoft JhengHei", 12, FW_BOLD, dpi);
+    fontPoints_ = candidateFontSize_;
+    candidateFont_ = MakeFont(L"Microsoft JhengHei", fontPoints_, FW_BOLD, dpi);
     keyFont_ = MakeFont(L"Arial", 8, FW_BOLD, dpi);
     indicatorFont_ = MakeFont(L"Arial", 7, FW_BOLD, dpi);
     hintFont_ = MakeFont(L"Microsoft JhengHei", 9, FW_NORMAL, dpi);
@@ -258,6 +259,12 @@ void CandidateWindow::place(HWND owner, const RECT& textRect) {
     NotifyWinEvent(EVENT_OBJECT_IME_SHOW, window_, OBJID_CLIENT, CHILDID_SELF);
 }
 
+void CandidateWindow::applySettings() {
+    const FrontendSettings settings = CurrentFrontendSettings();
+    palette_ = PaletteFor(settings);
+    candidateFontSize_ = settings.candidateFontSize;
+}
+
 void CandidateWindow::show(HWND owner, const RECT& textRect, const EngineResult& result) {
     horizontal_ = result.horizontalCandidates;
     candidates_ = result.candidates;
@@ -270,7 +277,7 @@ void CandidateWindow::show(HWND owner, const RECT& textRect, const EngineResult&
     expandedFirstPage_ = result.expandedFirstPage;
     expandedPageCount_ = result.expandedPageCount;
     allCandidates_ = expanded_ ? result.allCandidates : std::vector<std::wstring>();
-    palette_ = PaletteFor(CurrentFrontendSettings());
+    applySettings();
     message_.clear();
     ensureWindow(owner);
     if (!window_ || candidates_.empty()) {
@@ -285,7 +292,7 @@ void CandidateWindow::showMessage(HWND owner, const RECT& textRect, const std::w
     expanded_ = false;
     candidates_.clear();
     message_ = message;
-    palette_ = PaletteFor(CurrentFrontendSettings());
+    applySettings();
     ensureWindow(owner);
     if (!window_ || message_.empty()) {
         hide();

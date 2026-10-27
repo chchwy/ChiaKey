@@ -32,6 +32,7 @@ file for terms.
   IBOutlet id _shiftTogglesTemporaryEnglishCheckBox;
   IBOutlet id _resetTemporaryEnglishOnApplicationSwitchCheckBox;
   IBOutlet id _expandableCandidatePanelCheckBox;
+  IBOutlet NSPopUpButton *_candidateFontSizePopUpButton;
 
   NSMutableDictionary *_takaoDictionary;
   NSString *_preferenceFilePath;
