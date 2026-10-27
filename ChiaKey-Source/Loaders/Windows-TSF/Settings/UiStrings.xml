@@ -127,6 +127,10 @@ Total: {2:N0}</en>
     <en>System alert sound</en>
   </string>
   <string>
+    <source>字體大小：</source>
+    <en>Font size:</en>
+  </string>
+  <string>
     <source>使用背景花紋</source>
     <en>Use Pattern.</en>
   </string>

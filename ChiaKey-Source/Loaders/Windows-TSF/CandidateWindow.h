@@ -48,6 +48,7 @@ private:
     void paintIndicator(HDC dc, const RECT& client, int footerTop, int arrowLeft);
     void ensureWindow(HWND owner);
     void updateFonts(UINT dpi);
+    void applySettings();
     void releaseFonts();
     SIZE measure();
     bool hasMorePages() const { return expanded_ && expandedFirstPage_ + expandedPageCount_ < pageCount_; }
@@ -59,6 +60,9 @@ private:
     HFONT indicatorFont_ = nullptr;
     UINT dpi_ = USER_DEFAULT_SCREEN_DPI;
     int rowHeight_ = 0;
+    int candidateFontSize_ = 12;
+    // the size the current fonts were made at
+    int fontPoints_ = 0;
     CandidatePalette palette_;
 
     std::vector<EngineCandidate> candidates_;

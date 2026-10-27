@@ -192,6 +192,27 @@ file for terms.
   }
 }
 
+- (void)setCandidateFontSizeUI {
+  static const int sizes[] = {16, 18, 20, 22, 24, 28, 32, 36};
+  [_candidateFontSizePopUpButton removeAllItems];
+  for (size_t i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++) {
+    [_candidateFontSizePopUpButton
+        addItemWithTitle:[NSString stringWithFormat:@"%d", sizes[i]]];
+    [[_candidateFontSizePopUpButton lastItem] setTag:sizes[i]];
+  }
+
+  // same range and fallback as OpenVanillaController
+  int size = [[_takaoDictionary valueForKey:@"CandidateTextFontHeight"]
+      intValue];
+  if (size < 16 || size > 96) size = 18;
+  if (![_candidateFontSizePopUpButton selectItemWithTag:size]) {
+    [_candidateFontSizePopUpButton
+        addItemWithTitle:[NSString stringWithFormat:@"%d", size]];
+    [[_candidateFontSizePopUpButton lastItem] setTag:size];
+    [_candidateFontSizePopUpButton selectItemWithTag:size];
+  }
+}
+
 - (void)setUI {
   [_applyCapsLockDelayOverrideCheckBox
       setTitle:LFLSTR(@"Remove Caps Lock delay")];
@@ -250,6 +271,7 @@ file for terms.
     [_candidateWindowStyleMatrix selectCellAtRow:0 column:0];
 
   [self setSoundUI];
+  [self setCandidateFontSizeUI];
 #if (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_5)
   [self setKeyboardLayoutUI];
 #endif
@@ -329,6 +351,7 @@ file for terms.
   [_takaoDictionary setValue:@"true"
                       forKey:@"ResetTemporaryEnglishOnApplicationSwitch"];
   [_takaoDictionary setValue:@"true" forKey:@"ExpandableCandidatePanel"];
+  [_takaoDictionary setValue:@"18" forKey:@"CandidateTextFontHeight"];
 
   LFRetainAssign(_preferenceFilePath,
                  [TakaoHelper plistFilePath:PLIST_GLOBAL_FILENAME]);
@@ -390,6 +413,13 @@ file for terms.
       setValue:([_expandableCandidatePanelCheckBox intValue] ? @"true"
                                                             : @"false")
         forKey:@"ExpandableCandidatePanel"];
+
+  [_takaoDictionary
+      setValue:[NSString
+                   stringWithFormat:@"%ld",
+                                    (long)[_candidateFontSizePopUpButton
+                                               selectedTag]]
+        forKey:@"CandidateTextFontHeight"];
 
   if ([_useCtrlBackSlashToggleInputMethod intValue])
     [_takaoDictionary setValue:@"true"

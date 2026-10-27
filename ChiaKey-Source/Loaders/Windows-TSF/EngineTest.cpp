@@ -302,7 +302,7 @@ void TestSettings(const std::string& writableDir) {
                    Entry("SoundFilename", "C:/Windows/Media/notify.wav") +
                    Entry("ShouldUseNotifyWindow", "false") +
                    Entry("KeyboardFormShouldFollowCursor", "true") +
-                   Entry("UiLanguage", "en") +
+                   Entry("UiLanguage", "en") + Entry("CandidateFontSize", "16") +
                    "\t<key>ModulesSuppressedFromUI</key>\n\t<array>\n\t\t<string>Generic-simplex-cin"
                    "</string>\n\t\t<string>TraditionalMandarin</string>\n\t</array>\n");
     // the settings app writes the whole module plist, as the core does
@@ -317,6 +317,7 @@ void TestSettings(const std::string& writableDir) {
           "new runtimes use the selected UI locale, including module notifications");
     Check(!frontend.toggleWithControlBackslash, "boolean settings are read");
     Check(frontend.textColor == "White", "missing keys keep their defaults");
+    Check(frontend.candidateFontSize == 16, "the candidate font size is read");
     Check(!frontend.shiftTogglesEnglish, "the Shift tap toggle can be turned off");
     Check(!frontend.shiftSpaceTogglesFullWidth, "the Shift+Space width toggle can be turned off");
     Check(frontend.capsLockTogglesEnglish && frontend.chineseConverterToggleKey == "k" &&

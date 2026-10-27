@@ -782,6 +782,10 @@ FrontendSettings ReadFrontendSettings(const std::string& preferencesPath) {
     settings.simplifiedOutput = BoolValue(map, "SimplifiedOutput", settings.simplifiedOutput);
     settings.expandableCandidatePanel =
         BoolValue(map, "ExpandableCandidatePanel", settings.expandableCandidatePanel);
+    if (map.hasKey("CandidateFontSize")) {
+        const int size = map.intValueForKey("CandidateFontSize");
+        if (size >= 8 && size <= 48) settings.candidateFontSize = size;
+    }
     if (PVPlistValue* hidden = plist.rootDictionary()->valueForKey("ModulesSuppressedFromUI")) {
         for (size_t index = 0; index < hidden->arraySize(); ++index) {
             PVPlistValue* identifier = hidden->arrayElementAtIndex(index);

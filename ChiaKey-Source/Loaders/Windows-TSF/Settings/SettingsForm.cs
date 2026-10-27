@@ -126,6 +126,15 @@ namespace ChiaKey.Settings
             new Choice("Yellow", Ui.Text("黃色")),
             new Choice("Red", Ui.Text("紅色")),
         };
+        private static readonly Choice[] CandidateFontSizes = {
+            new Choice("10", "10"),
+            new Choice("12", "12"),
+            new Choice("14", "14"),
+            new Choice("16", "16"),
+            new Choice("18", "18"),
+            new Choice("20", "20"),
+            new Choice("24", "24"),
+        };
         private static readonly Choice[] BackgroundColors = {
             new Choice("Black", Ui.Text("黑色")),
             new Choice("White", Ui.Text("白色")),
@@ -202,6 +211,7 @@ namespace ChiaKey.Settings
         private CheckBox shiftUppercase;
         private ComboBox traditionalLayout;
         private ComboBox highlightColor;
+        private ComboBox candidateFontSize;
         private ComboBox backgroundColor;
         private ComboBox textColor;
         private CheckBox backgroundPattern;
@@ -819,6 +829,7 @@ namespace ChiaKey.Settings
             EnableCustomColor(highlightColor);
             EnableCustomColor(backgroundColor);
             EnableCustomColor(textColor);
+            candidateFontSize = Combo(candidate, "字體大小：", CandidateFontSizes);
             backgroundPattern = Check(candidate, "使用背景花紋");
             expandableCandidates = Check(candidate, "按方向鍵右展開多行候選字");
             GroupBox extra = Group(pane, "額外設定");
@@ -1019,6 +1030,7 @@ namespace ChiaKey.Settings
             Select(backgroundColor, BackgroundColors, frontend.GetString("BackgroundColor", "Black"));
             Select(textColor, TextColors, frontend.GetString("TextColor", "White"));
             backgroundPattern.Checked = frontend.GetBool("BackgroundPattern", false);
+            Select(candidateFontSize, CandidateFontSizes, frontend.GetInt("CandidateFontSize", 12).ToString());
             expandableCandidates.Checked = frontend.GetBool("ExpandableCandidatePanel", true);
             beep.Checked = frontend.GetBool("ShouldPlaySoundOnTypingError", true);
             string sound = frontend.GetString("SoundFilename", "Default");
@@ -1079,6 +1091,7 @@ namespace ChiaKey.Settings
             frontend.SetString("BackgroundColor", Selected(backgroundColor));
             frontend.SetString("TextColor", Selected(textColor));
             frontend.SetBool("BackgroundPattern", backgroundPattern.Checked);
+            frontend.SetString("CandidateFontSize", Selected(candidateFontSize));
             frontend.SetBool("ExpandableCandidatePanel", expandableCandidates.Checked);
             frontend.SetBool("ShouldPlaySoundOnTypingError", beep.Checked);
 
