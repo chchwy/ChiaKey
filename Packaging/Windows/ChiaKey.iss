@@ -205,6 +205,8 @@ begin
   MoveAsideLoaded(Folder + '\ChiaKeyTsf.dll');
   MoveAsideLoaded(Folder + '\x86\ChiaKeyTsf.dll');
   MoveAsideLoaded(Folder + '\ChiaKeySettings.exe');
+  // the state host outlives the apps that started it, so it is usually running
+  MoveAsideLoaded(Folder + '\ChiaKeyStateHost.exe');
   Result := '';
 end;
 
